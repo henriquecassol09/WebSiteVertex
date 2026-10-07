@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { buscarEmpresasSemSiteRegiao } from '../services/overpassService';
 import { useToast } from '../context/ToastContext';
 import { 
   ChevronLeft, 
@@ -14,7 +15,9 @@ import {
   Loader2,
   Globe2,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Phone,
+  Tag
 } from 'lucide-react';
 
 export const PesquisasView = () => {
@@ -81,19 +84,27 @@ export const PesquisasView = () => {
   };
 
   /**
-   * Dispara a busca através do backend Java Spring Boot (sem erros de CORS)
+   * Dispara a busca via JavaScript (OpenStreetMap / Overpass API)
+   * Filtrando empresas sem website na região de Laranjeiras do Sul e microrregião
    */
   const handleRealizarBusca = async () => {
     setBuscandoOverpass(true);
-    toast.info('Buscando empresas sem website na região via backend Java...');
+    toast.info('Buscando empresas sem website na região...');
 
     try {
-      const novosResultados = await api.pesquisas.prospectarRegiao();
+      const novosResultados = await buscarEmpresasSemSiteRegiao();
 
       if (!novosResultados || novosResultados.length === 0) {
-        toast.info('Nenhuma nova empresa sem site encontrada no momento.');
+        toast.info('Nenhuma empresa sem site encontrada no momento.');
         return;
       }
+
+      // Atualiza o cache dos dados ricos de cada empresa
+      const novoCache = { ...osmCache };
+      novosResultados.forEach((item) => {
+        novoCache[item.idPesquisa] = item;
+      });
+      setOsmCache(novoCache);
 
       // Adiciona os novos resultados no início da lista
       setPesquisas((prev) => {
@@ -106,6 +117,18 @@ export const PesquisasView = () => {
         ...prev,
         totalElements: prev.totalElements + novosResultados.length
       }));
+
+      // Tenta registrar as buscas no backend de forma transparente caso esteja conectado
+      novosResultados.slice(0, 10).forEach(async (item) => {
+        try {
+          await api.pesquisas.criar({
+            consulta: item.consulta,
+            regiao: item.regiao
+          });
+        } catch {
+          // silencioso
+        }
+      });
 
       toast.success(`${novosResultados.length} empresas locais sem site encontradas na região!`);
     } catch (err) {
@@ -169,14 +192,16 @@ export const PesquisasView = () => {
   const handleExcluirPesquisa = async (idPesquisa) => {
     if (!confirm('Deseja realmente excluir esta busca?')) return;
     try {
-      await api.pesquisas.excluir(idPesquisa);
+      if (typeof idPesquisa === 'number' || (!String(idPesquisa).startsWith('OSM-') && !isNaN(Number(idPesquisa)))) {
+        await api.pesquisas.excluir(idPesquisa).catch(() => {});
+      }
       setPesquisas((prev) => prev.filter((p) => p.idPesquisa !== idPesquisa));
       setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
       if (pesquisaDetalhe?.idPesquisa === idPesquisa) {
         setPesquisaDetalhe(null);
       }
       toast.success('Busca excluída com sucesso');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao excluir busca');
     }
   };
@@ -370,66 +395,130 @@ export const PesquisasView = () => {
       </div>
 
       {/* Modal de Detalhes da Pesquisa ao clicar na linha */}
-      {pesquisaDetalhe && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal dark:shadow-dark-modal rounded-xl max-w-lg w-full p-6 space-y-4 transition-colors">
-            <div className="flex items-center justify-between pb-3 border-b border-vertex-border dark:border-vertex-dark-border">
-              <h2 className="text-sm font-semibold text-vertex-dark dark:text-vertex-dark-text">
-                Detalhes da Prospecção
-              </h2>
-              <button
-                onClick={() => setPesquisaDetalhe(null)}
-                className="p-1 rounded-md text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {pesquisaDetalhe && (() => {
+        const osmDetalhe = osmCache[pesquisaDetalhe.idPesquisa] || pesquisaDetalhe;
+        const jaSalva = empresasSalvasIds.has(pesquisaDetalhe.idPesquisa);
+        const isSalvando = salvandoId === pesquisaDetalhe.idPesquisa;
 
-            <div className="space-y-3.5 text-xs">
-              <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">ID da Pesquisa:</span>
-                <span className="font-mono text-vertex-dark dark:text-vertex-dark-text font-medium">{pesquisaDetalhe.idPesquisa}</span>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal dark:shadow-dark-modal rounded-xl max-w-lg w-full p-6 space-y-4 transition-colors">
+              <div className="flex items-center justify-between pb-3 border-b border-vertex-border dark:border-vertex-dark-border">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-orange-50 dark:bg-orange-950/40 text-vertex-orange">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-vertex-dark dark:text-vertex-dark-text">
+                      Detalhes da Prospecção
+                    </h2>
+                    <p className="text-[11px] text-vertex-muted dark:text-vertex-dark-muted">
+                      Dados mapeados via OpenStreetMap
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPesquisaDetalhe(null)}
+                  className="p-1 rounded-md text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Empresa / Estabelecimento:</span>
-                <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text text-sm">{pesquisaDetalhe.consulta}</span>
-              </div>
-              <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Região & Localização:</span>
-                <span className="text-vertex-body dark:text-vertex-dark-text">{pesquisaDetalhe.regiao || 'Localidade não informada'}</span>
-              </div>
-              <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] mb-1">Status Web:</span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
-                  <Globe2 className="w-3 h-3" />
-                  Sem Website Registrado
-                </span>
-              </div>
-              <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Data da Prospecção:</span>
-                <span className="font-mono text-vertex-muted dark:text-vertex-dark-muted">{formatDate(pesquisaDetalhe.criadoEm)}</span>
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-vertex-border dark:border-vertex-dark-border">
-              <button
-                onClick={() => handleExcluirPesquisa(pesquisaDetalhe.idPesquisa)}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 active:scale-95 transition-all duration-150"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Excluir Busca</span>
-              </button>
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">ID da Pesquisa:</span>
+                  <span className="font-mono text-vertex-dark dark:text-vertex-dark-text font-medium">{pesquisaDetalhe.idPesquisa}</span>
+                </div>
 
-              <button
-                onClick={() => setPesquisaDetalhe(null)}
-                className="px-4 py-2 text-xs font-medium rounded-md border border-vertex-border dark:border-vertex-dark-border text-vertex-dark dark:text-vertex-dark-text hover:bg-slate-50 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150"
-              >
-                Fechar
-              </button>
+                <div>
+                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Empresa / Estabelecimento:</span>
+                  <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text text-sm">{pesquisaDetalhe.consulta}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Categoria:</span>
+                    <span className="text-vertex-body dark:text-vertex-dark-text font-medium">
+                      {osmDetalhe.categoria || 'Comércio Local'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Telefone:</span>
+                    <span className="text-vertex-body dark:text-vertex-dark-text font-medium">
+                      {osmDetalhe.telefone || 'Não informado no mapa'}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Região & Localização:</span>
+                  <span className="text-vertex-body dark:text-vertex-dark-text">
+                    {osmDetalhe.endereco || pesquisaDetalhe.regiao || 'Localidade não informada'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-md bg-slate-50 dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border">
+                  <div>
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[10px] uppercase font-bold tracking-wider">Presença Digital</span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
+                      <Globe2 className="w-3 h-3" />
+                      Sem Website Registrado
+                    </span>
+                  </div>
+                  {osmDetalhe.googleMapsUrl && (
+                    <a
+                      href={osmDetalhe.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border text-vertex-dark dark:text-vertex-dark-text hover:text-vertex-orange transition-colors"
+                    >
+                      <MapPin className="w-3 h-3 text-vertex-orange" />
+                      <span>Google Maps</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Data da Prospecção:</span>
+                  <span className="font-mono text-vertex-muted dark:text-vertex-dark-muted">{formatDate(pesquisaDetalhe.criadoEm)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-vertex-border dark:border-vertex-dark-border">
+                <button
+                  onClick={() => handleExcluirPesquisa(pesquisaDetalhe.idPesquisa)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 active:scale-95 transition-all duration-150 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Excluir Busca</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {!jaSalva && (
+                    <button
+                      onClick={() => handleSalvarEmpresa(pesquisaDetalhe)}
+                      disabled={isSalvando}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold bg-vertex-orange hover:bg-vertex-orange-hover active:scale-95 text-white shadow-sm transition-all duration-150 disabled:opacity-50 cursor-pointer"
+                    >
+                      <BookmarkPlus className="w-3.5 h-3.5" />
+                      <span>{isSalvando ? 'Salvando...' : 'Salvar Empresa'}</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => setPesquisaDetalhe(null)}
+                    className="px-4 py-2 text-xs font-medium rounded-md border border-vertex-border dark:border-vertex-dark-border text-vertex-dark dark:text-vertex-dark-text hover:bg-slate-50 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150 cursor-pointer"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

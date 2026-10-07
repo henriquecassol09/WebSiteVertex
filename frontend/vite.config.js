@@ -11,6 +11,12 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
+      },
+      '/osm-proxy': {
+        target: 'https://overpass-api.de/api/interpreter',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/osm-proxy/, ''),
+        secure: false,
       }
     }
   }

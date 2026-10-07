@@ -37,32 +37,44 @@ class ApiClient {
   }
 
   async checkHealth() {
+    let res = null;
+    let data = {};
+
     try {
-      const res = await fetch(`${API_BASE_URL}/health`, {
+      res = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
       });
-      const data = await res.json().catch(() => ({}));
-      const isConnected = res.ok && data.database === 'CONNECTED';
-      this.backendAvailable = res.ok;
-      this.healthData = data;
-      return {
-        available: res.ok,
-        database: data.database || (res.ok ? 'CONNECTED' : 'DOWN'),
-        application: data.application || (res.ok ? 'UP' : 'DOWN'),
-        error: data.error || null,
-        raw: data,
-      };
-    } catch (err) {
-      this.backendAvailable = false;
-      this.healthData = null;
-      return {
-        available: false,
-        database: 'DISCONNECTED',
-        application: 'UNREACHABLE',
-        error: err.message,
-      };
+      if (res.ok) {
+        data = await res.json().catch(() => ({}));
+      }
+    } catch {
+      // Fallback direto na porta 8080 caso o proxy local falhe
+      try {
+        res = await fetch(`http://127.0.0.1:8080/api/health`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+        });
+        if (res.ok) {
+          data = await res.json().catch(() => ({}));
+        }
+      } catch {
+        res = null;
+      }
     }
+
+    const isConnected = !!(res && res.ok);
+    const dbStatus = data.database || (isConnected ? 'CONNECTED' : 'DISCONNECTED');
+    this.backendAvailable = isConnected;
+    this.healthData = data;
+
+    return {
+      available: isConnected,
+      database: dbStatus,
+      application: data.application || (isConnected ? 'UP' : 'DOWN'),
+      error: isConnected ? null : 'Backend indisponível na porta 8080',
+      raw: data,
+    };
   }
 
   async request(endpoint, options = {}) {
@@ -73,54 +85,74 @@ class ApiClient {
       ...options.headers,
     };
 
+    let response;
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers,
       });
-
-      // Se token expirou (401), tentar refresh
-      if (response.status === 401 && tokenStorage.getRefreshToken() && !options._retry) {
-        const refreshed = await this.auth.refresh(tokenStorage.getRefreshToken());
-        if (refreshed?.accessToken) {
-          return this.request(endpoint, { ...options, _retry: true });
-        }
-      }
-
-      if (response.status === 204) return null;
-
-      if (response.status >= 500) {
-        this.backendAvailable = false;
-        throw new Error('BACKEND_UNAVAILABLE');
-      }
-
-      let data;
+    } catch {
+      // Fallback direto no backend se o proxy do Vite tiver oscilado
       try {
-        data = await response.json();
+        response = await fetch(`http://127.0.0.1:8080/api${endpoint}`, {
+          ...options,
+          headers,
+        });
       } catch {
         this.backendAvailable = false;
-        throw new Error('BACKEND_UNAVAILABLE');
+        throw new Error('Servidor indisponível no momento. Certifique-se de que o backend está ativo.');
       }
-
-      if (!response.ok) {
-        throw new Error(data.erro || data.message || `Erro HTTP ${response.status}`);
-      }
-
-      this.backendAvailable = true;
-      return data;
-    } catch (err) {
-      if (
-        err.message === 'BACKEND_UNAVAILABLE' ||
-        err.name === 'TypeError' ||
-        err.name === 'SyntaxError' ||
-        err.message.includes('Failed to fetch') ||
-        err.message.includes('ECONNREFUSED')
-      ) {
-        this.backendAvailable = false;
-        throw new Error('BACKEND_UNAVAILABLE');
-      }
-      throw err;
     }
+
+    // Se token expirou (401), tentar refresh apenas em rotas protegidas (não em /auth)
+    if (response.status === 401 && !endpoint.startsWith('/auth') && tokenStorage.getRefreshToken() && !options._retry) {
+      const refreshed = await this.auth.refresh(tokenStorage.getRefreshToken());
+      if (refreshed?.accessToken) {
+        return this.request(endpoint, { ...options, _retry: true });
+      }
+    }
+
+    if (response.status === 204) {
+      this.backendAvailable = true;
+      return null;
+    }
+
+    // Leitura segura do corpo (evita quebrar quando o backend retorna corpo vazio em 403/401)
+    const text = await response.text();
+    let data = null;
+    if (text && text.trim()) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { message: text };
+      }
+    }
+
+    // Erros HTTP onde o backend ESTÁ ATIVO e respondendo
+    if (response.status === 401) {
+      this.backendAvailable = true;
+      const msg = data?.erro || data?.message || 'Credenciais inválidas ou sessão expirada';
+      throw new Error(msg);
+    }
+
+    if (response.status === 403) {
+      this.backendAvailable = true;
+      const msg = data?.erro || data?.message || 'Acesso não autorizado. Por favor, realize login.';
+      throw new Error(msg);
+    }
+
+    if (!response.ok) {
+      this.backendAvailable = response.status < 500;
+      let msg = data?.erro || data?.message;
+      if (data?.detalhes && typeof data.detalhes === 'object') {
+        const detalhesTexto = Object.values(data.detalhes).join('; ');
+        if (detalhesTexto) msg = `${msg || 'Erro de validação'}: ${detalhesTexto}`;
+      }
+      throw new Error(msg || `Erro HTTP ${response.status}`);
+    }
+
+    this.backendAvailable = true;
+    return data;
   }
 
   // ===== AUTENTICAÇÃO (/api/auth) =====

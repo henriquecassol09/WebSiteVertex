@@ -164,6 +164,12 @@ class PesquisaService {
         return PesquisaResponse.from(buscarEntidade(idUsuario, idPesquisa));
     }
 
+    @Transactional
+    void excluir(String idUsuario, String idPesquisa) {
+        Pesquisa pesquisa = buscarEntidade(idUsuario, idPesquisa);
+        pesquisaRepository.delete(pesquisa);
+    }
+
     private Pesquisa buscarEntidade(String idUsuario, String idPesquisa) {
         // Busca sempre filtrada por idUsuario: garante isolamento entre usuarios (multi-tenancy)
         return pesquisaRepository.findByIdPesquisaAndIdUsuario(idPesquisa, idUsuario)

@@ -5,16 +5,14 @@ import { ToastProvider } from './context/ToastContext';
 import { Header } from './components/Header';
 import { EmpresasView } from './components/EmpresasView';
 import { PesquisasView } from './components/PesquisasView';
-import { PropostasView } from './components/PropostasView';
 import { LoginScreen } from './components/LoginScreen';
 import { AuthModal } from './components/AuthModal';
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
-  const [currentView, setCurrentView] = useState('login'); // 'empresas' | 'pesquisas' | 'propostas' | 'login'
+  const [currentView, setCurrentView] = useState('login'); // 'empresas' | 'pesquisas' | 'login'
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
-  const [preselectedEmpresa, setPreselectedEmpresa] = useState(null);
 
   // Se o usuário não estiver autenticado, garante que a tela ativa seja o login
   React.useEffect(() => {
@@ -28,17 +26,12 @@ function AppContent() {
     setAuthModalOpen(true);
   };
 
-  const handleNovaPropostaParaEmpresa = (empresa) => {
-    setPreselectedEmpresa(empresa);
-    setCurrentView('propostas');
-  };
-
   // Se o usuário selecionou a Tela de Login dedicada
   if (currentView === 'login') {
     return (
       <>
         <LoginScreen
-          onLoginSuccess={() => setCurrentView('empresas')}
+          onLoginSuccess={() => setCurrentView('pesquisas')}
           onSwitchToRegister={() => handleOpenAuth('register')}
         />
         <AuthModal
@@ -64,20 +57,12 @@ function AppContent() {
       {/* Conteúdo Principal com Respiro e Proporção */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-150">
         {currentView === 'empresas' && (
-          <EmpresasView onNovaProposta={handleNovaPropostaParaEmpresa} />
+          <EmpresasView />
         )}
         {currentView === 'pesquisas' && (
           <PesquisasView />
         )}
-        {currentView === 'propostas' && (
-          <PropostasView
-            preselectedEmpresa={preselectedEmpresa}
-            onClearPreselectedEmpresa={() => setPreselectedEmpresa(null)}
-          />
-        )}
       </main>
-
-
 
       {/* Modal de Autenticação */}
       <AuthModal

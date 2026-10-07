@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { 
   Building2, 
   Search, 
-  FileText, 
   User, 
   LogOut, 
   CheckCircle2, 
@@ -29,9 +28,8 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
   }, []);
 
   const navItems = [
+    { id: 'pesquisas', label: 'Busca', icon: Search, path: '/api/pesquisas' },
     { id: 'empresas', label: 'Empresas', icon: Building2, path: '/api/empresas' },
-    { id: 'pesquisas', label: 'Pesquisas', icon: Search, path: '/api/pesquisas' },
-    { id: 'propostas', label: 'Propostas', icon: FileText, path: '/api/propostas' },
   ];
 
   return (
@@ -42,7 +40,7 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
           <div className="flex items-center gap-8">
             <div 
               className="cursor-pointer flex items-center transition-opacity hover:opacity-90 active:scale-[0.99] duration-150" 
-              onClick={() => onViewChange('empresas')}
+              onClick={() => onViewChange('pesquisas')}
             >
               <div className="flex items-center">
                 {/* Logo Tema Claro */}

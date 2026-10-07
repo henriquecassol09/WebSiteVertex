@@ -4,11 +4,11 @@ import { useToast } from '../context/ToastContext';
 import { EmpresaModal } from './EmpresaModal';
 import { EmpresaDetalhe } from './EmpresaDetalhe';
 import { 
-  Plus, 
   Search, 
   Edit2, 
   Trash2, 
   Eye, 
+  Info,
   ChevronLeft, 
   ChevronRight,
   Filter,
@@ -17,7 +17,7 @@ import {
   X
 } from 'lucide-react';
 
-export const EmpresasView = ({ onNovaProposta }) => {
+export const EmpresasView = () => {
   const [empresas, setEmpresas] = useState([]);
   const [pesquisas, setPesquisas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -175,7 +175,7 @@ export const EmpresasView = ({ onNovaProposta }) => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Ações */}
+      {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-vertex-dark dark:text-vertex-dark-text">
@@ -185,17 +185,6 @@ export const EmpresasView = ({ onNovaProposta }) => {
             Registros de organizações e contatos retornados pela API.
           </p>
         </div>
-
-        <button
-          onClick={() => {
-            setEmpresaEmEdicao(null);
-            setModalOpen(true);
-          }}
-          className="flex items-center justify-center gap-2 h-9 px-4 rounded-md text-xs font-semibold bg-vertex-orange text-white hover:bg-vertex-orange-hover active:scale-[0.98] transition-all duration-200 shadow-sm hover:shadow-glow-orange self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Empresa</span>
-        </button>
       </div>
 
       {/* Barra de Filtros & Busca */}
@@ -337,13 +326,14 @@ export const EmpresasView = ({ onNovaProposta }) => {
 
                     {/* Ações */}
                     <td className="py-4 px-5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setEmpresaSelecionada(emp)}
-                          title="Visualizar"
-                          className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-vertex-dark-surface text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text active:scale-95 transition-all duration-150"
+                          title="Ver informações detalhadas da empresa"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-vertex-orange/10 dark:bg-vertex-orange/15 hover:bg-vertex-orange hover:text-white text-vertex-orange active:scale-95 text-[11px] font-semibold border border-vertex-orange/20 hover:border-vertex-orange transition-all duration-150 shadow-sm"
                         >
-                          <Eye className="w-3.5 h-3.5" />
+                          <Info className="w-3.5 h-3.5 shrink-0" />
+                          <span>Informações</span>
                         </button>
                         <button
                           onClick={() => {
@@ -424,7 +414,6 @@ export const EmpresasView = ({ onNovaProposta }) => {
           }}
           onNovaProposta={(emp) => {
             setEmpresaSelecionada(null);
-            onNovaProposta(emp);
           }}
         />
       )}

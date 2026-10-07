@@ -155,105 +155,172 @@ export const EmpresaDetalhe = ({ empresa, onClose, onEdit, onNovaProposta }) => 
             </button>
           </div>
         </div>
-
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Seção 1: Dados Cadastrais */}
-          <div className="bg-vertex-bg/50 dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded p-4 space-y-3">
-            <h3 className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
-              Dados da Empresa
-            </h3>
+          {/* SEÇÃO 1: TIPO DA EMPRESA */}
+          <div className="bg-white dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded-xl p-5 shadow-subtle space-y-3.5 transition-colors">
+            <div className="flex items-center justify-between border-b border-vertex-border/70 dark:border-vertex-dark-border pb-2.5">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-vertex-orange" />
+                <h3 className="text-xs font-bold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
+                  Tipo da Empresa & Atividade
+                </h3>
+              </div>
+              {empresa.categoria && (
+                <span className="text-[11px] font-semibold text-vertex-orange bg-vertex-orange/10 dark:bg-vertex-orange/20 px-2.5 py-1 rounded-full">
+                  {empresa.categoria}
+                </span>
+              )}
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
               <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Localização:</span>
-                <span className="font-medium text-vertex-dark dark:text-vertex-dark-text flex items-center gap-1.5 mt-0.5">
-                  <MapPin className="w-3.5 h-3.5 text-vertex-muted dark:text-vertex-dark-muted shrink-0" />
-                  {[empresa.cidade, empresa.estado].filter(Boolean).join(' - ') || 'Não informado'}
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Segmento / Categoria:</span>
+                <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text mt-0.5 block">
+                  {empresa.categoria || 'Não informado'}
                 </span>
               </div>
 
               <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Telefone:</span>
-                <span className="font-medium text-vertex-dark dark:text-vertex-dark-text flex items-center gap-1.5 mt-0.5">
-                  <Phone className="w-3.5 h-3.5 text-vertex-muted dark:text-vertex-dark-muted shrink-0" />
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Identificador:</span>
+                <span className="font-mono text-[11px] text-vertex-dark dark:text-vertex-dark-text mt-0.5 block truncate">
+                  {empresa.idEmpresa}
+                </span>
+              </div>
+
+              {empresa.descricao && (
+                <div className="sm:col-span-2 pt-1 border-t border-vertex-border/50 dark:border-vertex-dark-border/50">
+                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium mb-1">
+                    Descrição & Atividades:
+                  </span>
+                  <p className="text-xs text-vertex-body dark:text-vertex-dark-text leading-relaxed whitespace-pre-wrap bg-slate-50/50 dark:bg-vertex-dark-card/50 p-3 rounded-lg border border-vertex-border/40 dark:border-vertex-dark-border/40">
+                    {empresa.descricao}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SEÇÃO 2: CONTATO */}
+          <div className="bg-white dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded-xl p-5 shadow-subtle space-y-3.5 transition-colors">
+            <div className="flex items-center gap-2 border-b border-vertex-border/70 dark:border-vertex-dark-border pb-2.5">
+              <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <h3 className="text-xs font-bold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
+                Canais de Contato
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+              <div>
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Telefone:</span>
+                <div className="mt-1">
                   {empresa.telefone ? (
-                    <a href={`tel:${empresa.telefone}`} className="hover:text-vertex-orange transition-colors">
-                      {empresa.telefone}
+                    <a
+                      href={`tel:${empresa.telefone}`}
+                      className="inline-flex items-center gap-1.5 font-semibold text-vertex-dark dark:text-vertex-dark-text hover:text-vertex-orange transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span>{empresa.telefone}</span>
                     </a>
                   ) : (
-                    'Não informado'
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted">Não informado</span>
                   )}
-                </span>
+                </div>
               </div>
 
               <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">E-mail:</span>
-                <span className="font-medium text-vertex-dark dark:text-vertex-dark-text flex items-center gap-1.5 mt-0.5 truncate">
-                  <Mail className="w-3.5 h-3.5 text-vertex-muted dark:text-vertex-dark-muted shrink-0" />
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">E-mail Comercial:</span>
+                <div className="mt-1">
                   {empresa.email ? (
-                    <a href={`mailto:${empresa.email}`} className="hover:text-vertex-orange transition-colors truncate">
-                      {empresa.email}
+                    <a
+                      href={`mailto:${empresa.email}`}
+                      className="inline-flex items-center gap-1.5 font-semibold text-vertex-dark dark:text-vertex-dark-text hover:text-vertex-orange transition-colors truncate max-w-full"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <span className="truncate">{empresa.email}</span>
                     </a>
                   ) : (
-                    'Não informado'
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted">Não informado</span>
                   )}
-                </span>
+                </div>
               </div>
 
-              <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Website:</span>
-                <span className="font-medium text-vertex-dark dark:text-vertex-dark-text flex items-center gap-1.5 mt-0.5 truncate">
-                  <Globe className="w-3.5 h-3.5 text-vertex-muted dark:text-vertex-dark-muted shrink-0" />
+              <div className="sm:col-span-2">
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Website Oficial:</span>
+                <div className="mt-1">
                   {empresa.site ? (
                     <a
                       href={empresa.site.startsWith('http') ? empresa.site : `https://${empresa.site}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-vertex-orange hover:underline flex items-center gap-1 truncate"
+                      className="inline-flex items-center gap-1.5 font-semibold text-vertex-orange hover:underline transition-colors"
                     >
-                      <span>{empresa.site}</span>
-                      <ArrowUpRight className="w-3 h-3 shrink-0" />
+                      <Globe className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{empresa.site}</span>
+                      <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                     </a>
                   ) : (
-                    'Não informado'
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted">Não informado</span>
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SEÇÃO 3: ÁREA & LOCALIZAÇÃO */}
+          <div className="bg-white dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded-xl p-5 shadow-subtle space-y-3.5 transition-colors">
+            <div className="flex items-center justify-between border-b border-vertex-border/70 dark:border-vertex-dark-border pb-2.5">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-red-500" />
+                <h3 className="text-xs font-bold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
+                  Área & Localização
+                </h3>
+              </div>
+
+              {/* Botão Ver no Google Maps */}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  [empresa.nome, empresa.endereco, empresa.cidade, empresa.estado].filter(Boolean).join(' ')
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-vertex-dark-card dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text transition-colors"
+              >
+                <MapPin className="w-3 h-3 text-red-500" />
+                <span>Ver no Google Maps</span>
+                <ArrowUpRight className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+              <div>
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Cidade / Estado:</span>
+                <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text mt-0.5 block">
+                  {[empresa.cidade, empresa.estado].filter(Boolean).join(' - ') || 'Não informado'}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Origem da Busca:</span>
+                <span className="font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted mt-0.5 block truncate">
+                  {empresa.idPesquisa ? `ID Pesquisa: ${empresa.idPesquisa}` : 'Cadastro direto'}
                 </span>
               </div>
 
               {empresa.endereco && (
                 <div className="sm:col-span-2">
-                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Endereço Completo:</span>
-                  <span className="font-medium text-vertex-dark dark:text-vertex-dark-text mt-0.5 block">
+                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Endereço Completo:</span>
+                  <span className="font-medium text-vertex-dark dark:text-vertex-dark-text mt-0.5 block bg-slate-50/50 dark:bg-vertex-dark-card/50 p-2.5 rounded border border-vertex-border/40 dark:border-vertex-dark-border/40">
                     {empresa.endereco}
-                  </span>
-                </div>
-              )}
-
-              {empresa.idPesquisa && (
-                <div className="sm:col-span-2">
-                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">ID Pesquisa Relacionada:</span>
-                  <span className="font-mono text-[11px] text-vertex-body dark:text-vertex-dark-muted mt-0.5 block">
-                    {empresa.idPesquisa}
                   </span>
                 </div>
               )}
             </div>
 
-            {/* Descrição */}
-            {empresa.descricao && (
-              <div className="pt-2 border-t border-vertex-border/60 dark:border-vertex-dark-border">
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] mb-1">Descrição:</span>
-                <p className="text-xs text-vertex-body dark:text-vertex-dark-text leading-relaxed whitespace-pre-wrap">
-                  {empresa.descricao}
-                </p>
-              </div>
-            )}
-
-            {/* Timestamps */}
-            <div className="pt-2 border-t border-vertex-border/60 dark:border-vertex-dark-border flex flex-wrap gap-4 text-[11px] text-vertex-muted dark:text-vertex-dark-muted font-mono">
+            {/* Metadados de criação */}
+            <div className="pt-2 border-t border-vertex-border/50 dark:border-vertex-dark-border/50 flex flex-wrap gap-4 text-[11px] text-vertex-muted dark:text-vertex-dark-muted font-mono">
               <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Criado em: {formatDate(empresa.criadoEm)}
+                <Calendar className="w-3 h-3" /> Cadastrado em: {formatDate(empresa.criadoEm)}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" /> Atualizado em: {formatDate(empresa.atualizadoEm)}

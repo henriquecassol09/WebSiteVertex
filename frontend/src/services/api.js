@@ -281,6 +281,18 @@ class ApiClient {
         method: 'POST',
         body: JSON.stringify(pesquisaReq),
       });
+    },
+
+    prospectarRegiao: async () => {
+      return await this.request('/pesquisas/prospectar-regiao', {
+        method: 'POST',
+      });
+    },
+
+    excluir: async (id) => {
+      return await this.request(`/pesquisas/${id}`, {
+        method: 'DELETE',
+      });
     }
   };
 

@@ -54,6 +54,12 @@ class AuthController {
 class PesquisaController {
 
     private final PesquisaService pesquisaService;
+    private final ProspeccaoService prospeccaoService;
+
+    @PostMapping("/prospectar-regiao")
+    ResponseEntity<List<PesquisaResponse>> prospectarRegiao() {
+        return ResponseEntity.ok(prospeccaoService.prospectarEmpresasSemSite(AutenticacaoUtil.idUsuarioAtual()));
+    }
 
     @PostMapping
     ResponseEntity<PesquisaResponse> criar(@Valid @RequestBody PesquisaRequest req) {
@@ -69,6 +75,12 @@ class PesquisaController {
     @GetMapping("/{id}")
     ResponseEntity<PesquisaResponse> buscar(@PathVariable String id) {
         return ResponseEntity.ok(pesquisaService.buscar(AutenticacaoUtil.idUsuarioAtual(), id));
+    }
+
+    @DeleteMapping("/{id}")
+    ResponseEntity<Void> excluir(@PathVariable String id) {
+        pesquisaService.excluir(AutenticacaoUtil.idUsuarioAtual(), id);
+        return ResponseEntity.noContent().build();
     }
 }
 

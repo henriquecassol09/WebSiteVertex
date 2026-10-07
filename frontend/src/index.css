@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-page: #F8F9FA;
+    --bg-card: #FFFFFF;
+    --bg-subtle: #F0F2F5;
+    --text-primary: #111315;
+    --text-secondary: #3A3F45;
+    --text-muted: #717882;
+    --border-color: #E5E8EB;
+  }
+
+  html.dark, body.dark, .dark {
+    color-scheme: dark;
+    --bg-page: #0A0B0E;
+    --bg-card: #111318;
+    --bg-subtle: #171A21;
+    --text-primary: #F3F4F6;
+    --text-secondary: #CBD5E1;
+    --text-muted: #94A3B8;
+    --border-color: #1F242D;
+  }
+
+  * {
+    border-color: var(--border-color);
+  }
+
+  body {
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    transition: background-color 0.7s ease-in-out, color 0.7s ease-in-out;
+  }
+
+  textarea {
+    resize: none !important;
+  }
+}
+
+/* Fallback Global de Alta Confiabilidade para Tema Escuro */
+html.dark body, body.dark {
+  background-color: #0A0B0E !important;
+  color: #F3F4F6 !important;
+}
+
+html.dark header, body.dark header {
+  background-color: rgba(17, 19, 24, 0.92) !important;
+  border-color: #1F242D !important;
+}
+
+html.dark .bg-white, body.dark .bg-white {
+  background-color: #111318 !important;
+}
+
+html.dark .bg-vertex-bg, body.dark .bg-vertex-bg {
+  background-color: #0A0B0E !important;
+}
+
+html.dark .bg-vertex-bg\/30, body.dark .bg-vertex-bg\/30,
+html.dark .bg-vertex-bg\/40, body.dark .bg-vertex-bg\/40,
+html.dark .bg-vertex-bg\/50, body.dark .bg-vertex-bg\/50,
+html.dark .bg-vertex-bg\/60, body.dark .bg-vertex-bg\/60 {
+  background-color: #171A21 !important;
+}
+
+html.dark .border-vertex-border, body.dark .border-vertex-border,
+html.dark .border-vertex-border-light, body.dark .border-vertex-border-light {
+  border-color: #1F242D !important;
+}
+
+html.dark .divide-vertex-border > *, body.dark .divide-vertex-border > * {
+  border-color: #1F242D !important;
+}
+
+html.dark .text-vertex-dark, body.dark .text-vertex-dark {
+  color: #F3F4F6 !important;
+}
+
+html.dark .text-vertex-body, body.dark .text-vertex-body {
+  color: #CBD5E1 !important;
+}
+
+html.dark .text-vertex-muted, body.dark .text-vertex-muted {
+  color: #94A3B8 !important;
+}
+
+html.dark input, html.dark select, html.dark textarea,
+body.dark input, body.dark select, body.dark textarea {
+  color: #F3F4F6;
+}
+
+html.dark footer, body.dark footer {
+  background-color: #111318 !important;
+  border-color: #1F242D !important;
+}
+
+/* Scrollbar minimalista */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb, html.dark ::-webkit-scrollbar-thumb {
+  background: #2D333F;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover, html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #3F4756;
+}

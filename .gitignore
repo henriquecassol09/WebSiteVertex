@@ -1,0 +1,112 @@
+# ==============================================================================
+# VERTEX - .gitignore Geral (Monorepo / Fullstack)
+# Backend: Java 21 / Spring Boot / Maven
+# Frontend: Node.js / React / Vite
+# Banco: Neon Serverless PostgreSQL
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. SEGURANÇA & CREDENCIAIS (NUNCA COMMITAR SENHAS OU CHAVES)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+.env.local
+.env.*.local
+!.env.example
+*.secret
+*.key
+*.pem
+*.pfx
+*.p12
+
+# ------------------------------------------------------------------------------
+# 2. BACKEND (Java, Spring Boot & Maven)
+# ------------------------------------------------------------------------------
+target/
+**/target/
+*.class
+
+# Empacotamento Java
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Maven Wrapper: permitir o JAR do wrapper para que ./mvnw funcione em qualquer máquina
+!.mvn/wrapper/maven-wrapper.jar
+!backend/.mvn/wrapper/maven-wrapper.jar
+
+# Crash dumps e profiling da JVM
+hs_err_pid*
+replay_pid*
+*.hprof
+
+# ------------------------------------------------------------------------------
+# 3. FRONTEND (Node.js, React, Vite)
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-ssr/
+.cache/
+.vite/
+
+# Logs de gerenciadores de pacote
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------------------------
+# 4. LOGS DA APLICAÇÃO
+# ------------------------------------------------------------------------------
+logs/
+**/logs/
+*.log
+
+# ------------------------------------------------------------------------------
+# 5. IDES E EDITORES (IntelliJ IDEA, VS Code, Eclipse)
+# ------------------------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+.classpath
+.project
+.settings/
+bin/
+
+*.sublime-workspace
+*.sublime-project
+
+# ------------------------------------------------------------------------------
+# 6. SISTEMAS OPERACIONAIS & ARQUIVOS TEMPORÁRIOS
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux / Vim / Backup
+*~
+*.swp
+*.swo

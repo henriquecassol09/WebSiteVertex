@@ -1,0 +1,14 @@
+server:
+  ssl:
+    enabled: true
+    key-store: ${SSL_KEYSTORE_PATH}
+    key-store-password: ${SSL_KEYSTORE_PASSWORD}
+    key-store-type: PKCS12
+
+spring:
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: WARN

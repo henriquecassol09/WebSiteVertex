@@ -5,8 +5,6 @@
  * Apenas consome o que o backend retorna.
  */
 
-import { buscarEmpresasSemSiteRegiao } from './overpassService';
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Limpeza garantida de resquícios de mocks no navegador do usuário
@@ -318,7 +316,9 @@ class ApiClient {
     },
 
     prospectarRegiao: async () => {
-      return await buscarEmpresasSemSiteRegiao();
+      return await this.request('/pesquisas/prospectar-regiao', {
+        method: 'POST',
+      });
     },
 
     excluir: async (id) => {

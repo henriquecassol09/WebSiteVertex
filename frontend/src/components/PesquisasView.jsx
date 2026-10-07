@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { buscarEmpresasSemSiteRegiao } from '../services/overpassService';
 import { useToast } from '../context/ToastContext';
 import { 
   ChevronLeft, 
@@ -30,7 +29,6 @@ export const PesquisasView = () => {
   const [pageSize] = useState(10);
   const [pageData, setPageData] = useState({ totalElements: 0, totalPages: 1 });
   const [pesquisaDetalhe, setPesquisaDetalhe] = useState(null);
-  const [osmCache, setOsmCache] = useState({});
 
   const toast = useToast();
 
@@ -84,75 +82,42 @@ export const PesquisasView = () => {
   };
 
   /**
-   * Dispara a busca via JavaScript (OpenStreetMap / Overpass API)
-   * Filtrando empresas sem website na região de Laranjeiras do Sul e microrregião
+   * Dispara a busca via Backend Java (Spring Boot)
+   * As buscas são consultadas na Overpass API e persistidas no banco Neon
    */
   const handleRealizarBusca = async () => {
     setBuscandoOverpass(true);
-    toast.info('Buscando empresas sem website na região...');
+    toast.info('Buscando empresas sem website na região via backend...');
 
     try {
-      const novosResultados = await buscarEmpresasSemSiteRegiao();
+      const novosResultados = await api.pesquisas.prospectarRegiao();
 
       if (!novosResultados || novosResultados.length === 0) {
-        toast.info('Nenhuma empresa sem site encontrada no momento.');
-        return;
+        toast.info('Nenhuma nova empresa sem site encontrada no momento.');
+      } else {
+        toast.success(`${novosResultados.length} empresas encontradas e registradas no banco Neon!`);
       }
 
-      // Atualiza o cache dos dados ricos de cada empresa
-      const novoCache = { ...osmCache };
-      novosResultados.forEach((item) => {
-        novoCache[item.idPesquisa] = item;
-      });
-      setOsmCache(novoCache);
-
-      // Adiciona os novos resultados no início da lista
-      setPesquisas((prev) => {
-        const idsExistentes = new Set(prev.map((p) => p.idPesquisa));
-        const unicos = novosResultados.filter((n) => !idsExistentes.has(n.idPesquisa));
-        return [...unicos, ...prev];
-      });
-
-      setPageData((prev) => ({
-        ...prev,
-        totalElements: prev.totalElements + novosResultados.length
-      }));
-
-      // Tenta registrar as buscas no backend de forma transparente caso esteja conectado
-      novosResultados.slice(0, 10).forEach(async (item) => {
-        try {
-          await api.pesquisas.criar({
-            consulta: item.consulta,
-            regiao: item.regiao
-          });
-        } catch {
-          // silencioso
-        }
-      });
-
-      toast.success(`${novosResultados.length} empresas locais sem site encontradas na região!`);
+      await carregarPesquisas();
     } catch (err) {
-      toast.error(err.message || 'Erro ao realizar busca de empresas');
+      toast.error(err.message || 'Erro ao realizar busca de empresas no backend');
     } finally {
       setBuscandoOverpass(false);
     }
   };
 
   /**
-   * Salva uma empresa prospectada no banco de dados (aparece na aba Empresas)
+   * Salva uma empresa prospectada no banco Neon (aparece na aba Empresas).
+   * Conforme regra: uma empresa salva NÃO deve aparecer em nenhuma busca!
    */
   const handleSalvarEmpresa = async (p) => {
     setSalvandoId(p.idPesquisa);
     try {
-      const osmData = osmCache[p.idPesquisa];
+      let cidade = 'Laranjeiras do Sul';
+      let estado = 'PR';
+      let endereco = p.regiao || 'Centro';
 
-      let cidade = osmData?.cidade || 'Laranjeiras do Sul';
-      let estado = osmData?.estado || 'PR';
-      let endereco = osmData?.endereco || p.regiao || 'Centro';
-      let telefone = osmData?.telefone || 'Não informado no mapa';
-      let categoria = osmData?.categoria || 'Comércio Local';
-
-      if (!osmData && p.regiao) {
+      if (p.regiao) {
         const partes = p.regiao.split('-');
         if (partes.length > 1) {
           cidade = partes[0].trim();
@@ -162,26 +127,31 @@ export const PesquisasView = () => {
         }
       }
 
-      const emailReal = (osmData?.email && osmData.email.includes('@') && !osmData.email.includes('empresa.com.br'))
-        ? osmData.email.trim()
-        : 'Não informado';
-
       const payload = {
         nome: p.consulta,
-        categoria: categoria,
+        categoria: 'Comércio Local',
         cidade: cidade,
         estado: estado,
         endereco: endereco,
-        telefone: telefone,
-        email: emailReal,
-        site: '', // Garantido sem website (lead qualificado para criação de site)
+        telefone: 'Não informado',
+        email: 'Não informado',
+        site: '',
         descricao: `Empresa prospectada via OpenStreetMap na região "${p.regiao}". Identificada sem presença digital / website.`,
         idPesquisa: p.idPesquisa
       };
 
       await api.empresas.criar(payload);
+
+      // Remove a empresa salva da lista da busca imediatamente
+      setPesquisas((prev) => prev.filter((item) => item.idPesquisa !== p.idPesquisa && item.consulta.toLowerCase() !== p.consulta.toLowerCase()));
       setEmpresasSalvasIds((prev) => new Set([...prev, p.idPesquisa]));
-      toast.success(`"${p.consulta}" salva com sucesso! Disponível na aba Empresas.`);
+      setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
+
+      if (pesquisaDetalhe?.idPesquisa === p.idPesquisa) {
+        setPesquisaDetalhe(null);
+      }
+
+      toast.success(`"${p.consulta}" salva com sucesso! Movida para a aba Empresas.`);
     } catch (err) {
       toast.error(err.message || 'Erro ao salvar empresa');
     } finally {
@@ -190,22 +160,21 @@ export const PesquisasView = () => {
   };
 
   /**
-   * Exclui uma busca registrada
+   * Exclui uma busca registrada no banco Neon
+   * Caso excluída, só voltará a aparecer se o usuário buscar novamente
    */
   const handleExcluirPesquisa = async (idPesquisa) => {
-    if (!confirm('Deseja realmente excluir esta busca?')) return;
+    if (!confirm('Deseja realmente excluir esta busca do banco de dados?')) return;
     try {
-      if (typeof idPesquisa === 'number' || (!String(idPesquisa).startsWith('OSM-') && !isNaN(Number(idPesquisa)))) {
-        await api.pesquisas.excluir(idPesquisa).catch(() => {});
-      }
+      await api.pesquisas.excluir(idPesquisa);
       setPesquisas((prev) => prev.filter((p) => p.idPesquisa !== idPesquisa));
       setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
       if (pesquisaDetalhe?.idPesquisa === idPesquisa) {
         setPesquisaDetalhe(null);
       }
-      toast.success('Busca excluída com sucesso');
-    } catch {
-      toast.error('Erro ao excluir busca');
+      toast.success('Busca excluída com sucesso do banco');
+    } catch (err) {
+      toast.error(err.message || 'Erro ao excluir busca');
     }
   };
 

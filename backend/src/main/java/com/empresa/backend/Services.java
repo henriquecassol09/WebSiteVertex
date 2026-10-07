@@ -157,7 +157,7 @@ class PesquisaService {
     }
 
     Page<PesquisaResponse> listar(String idUsuario, Pageable pageable) {
-        return pesquisaRepository.findByIdUsuario(idUsuario, pageable).map(PesquisaResponse::from);
+        return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, pageable).map(PesquisaResponse::from);
     }
 
     PesquisaResponse buscar(String idUsuario, String idPesquisa) {
@@ -186,10 +186,21 @@ class EmpresaService {
 
     @Transactional
     EmpresaResponse criar(String idUsuario, EmpresaRequest req) {
+        String nomeTrim = req.nome().trim();
+
+        // Não permitir salvar uma empresa duas vezes
+        if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nomeTrim)) {
+            throw new IllegalArgumentException("Esta empresa já foi salva no sistema");
+        }
+        if (req.idPesquisa() != null && !req.idPesquisa().isBlank()
+                && empresaRepository.existsByIdUsuarioAndIdPesquisa(idUsuario, req.idPesquisa())) {
+            throw new IllegalArgumentException("Esta empresa já foi salva no sistema");
+        }
+
         Empresa empresa = Empresa.builder()
                 .idUsuario(idUsuario)
                 .idPesquisa(req.idPesquisa())
-                .nome(req.nome().trim())
+                .nome(nomeTrim)
                 .categoria(req.categoria())
                 .cidade(req.cidade())
                 .estado(req.estado())

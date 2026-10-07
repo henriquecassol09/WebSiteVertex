@@ -61,7 +61,7 @@ record EmpresaRequest(
     @Size(max = 100) String estado,
     @Size(max = 255) String endereco,
     @Size(max = 30) String telefone,
-    @Email @Size(max = 255) String email,
+    @Size(max = 255) String email,
     @Size(max = 255) String site,
     @Size(max = 4000) String descricao,
     String idPesquisa

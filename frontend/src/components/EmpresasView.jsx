@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { EmpresaModal } from './EmpresaModal';
 import { EmpresaDetalhe } from './EmpresaDetalhe';
 import { 
   Search, 
-  Edit2, 
   Trash2, 
   Eye, 
   Info,
@@ -67,9 +65,7 @@ export const EmpresasView = () => {
     }
   };
 
-  // Modais e Detalhes
-  const [modalOpen, setModalOpen] = useState(false);
-  const [empresaEmEdicao, setEmpresaEmEdicao] = useState(null);
+  // Detalhes da Empresa
   const [empresaSelecionada, setEmpresaSelecionada] = useState(null);
 
   const toast = useToast();
@@ -104,27 +100,6 @@ export const EmpresasView = () => {
     }
   };
 
-  const handleSalvarEmpresa = async (formData) => {
-    try {
-      if (empresaEmEdicao) {
-        const atualizada = await api.empresas.atualizar(empresaEmEdicao.idEmpresa, formData);
-        setEmpresas(empresas.map((e) => (e.idEmpresa === atualizada.idEmpresa ? atualizada : e)));
-        if (empresaSelecionada?.idEmpresa === atualizada.idEmpresa) {
-          setEmpresaSelecionada(atualizada);
-        }
-        toast.success('Empresa atualizada com sucesso');
-      } else {
-        const criada = await api.empresas.criar(formData);
-        setEmpresas([criada, ...empresas]);
-        setPageData((prev) => ({ ...prev, totalElements: prev.totalElements + 1 }));
-        toast.success('Empresa cadastrada com sucesso');
-      }
-      setEmpresaEmEdicao(null);
-    } catch (err) {
-      toast.error(err.message || 'Erro ao salvar empresa');
-      throw err;
-    }
-  };
 
   const handleExcluir = async (idEmpresa) => {
     if (!confirm('Deseja realmente excluir esta empresa?')) return;
@@ -298,7 +273,11 @@ export const EmpresasView = () => {
 
                     {/* E-mail */}
                     <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text">
-                      {emp.email || '-'}
+                      {emp.email && emp.email.toLowerCase() !== 'não informado' && emp.email.includes('@') && !emp.email.includes('empresa.com.br') ? (
+                        <span>{emp.email}</span>
+                      ) : (
+                        <span className="text-vertex-muted dark:text-vertex-dark-muted">Não informado</span>
+                      )}
                     </td>
 
                     {/* Site */}
@@ -330,25 +309,15 @@ export const EmpresasView = () => {
                         <button
                           onClick={() => setEmpresaSelecionada(emp)}
                           title="Ver informações detalhadas da empresa"
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-vertex-orange/10 dark:bg-vertex-orange/15 hover:bg-vertex-orange hover:text-white text-vertex-orange active:scale-95 text-[11px] font-semibold border border-vertex-orange/20 hover:border-vertex-orange transition-all duration-150 shadow-sm"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-vertex-orange/10 dark:bg-vertex-orange/15 hover:bg-vertex-orange hover:text-white text-vertex-orange active:scale-95 text-[11px] font-semibold border border-vertex-orange/20 hover:border-vertex-orange transition-all duration-150 shadow-sm cursor-pointer"
                         >
                           <Info className="w-3.5 h-3.5 shrink-0" />
                           <span>Informações</span>
                         </button>
                         <button
-                          onClick={() => {
-                            setEmpresaEmEdicao(emp);
-                            setModalOpen(true);
-                          }}
-                          title="Editar"
-                          className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-vertex-dark-surface text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text active:scale-95 transition-all duration-150"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
                           onClick={() => handleExcluir(emp.idEmpresa)}
                           title="Excluir"
-                          className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 text-vertex-muted dark:text-vertex-dark-muted hover:text-red-600 dark:hover:text-red-400 active:scale-95 transition-all duration-150"
+                          className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 text-vertex-muted dark:text-vertex-dark-muted hover:text-red-600 dark:hover:text-red-400 active:scale-95 transition-all duration-150 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -391,30 +360,11 @@ export const EmpresasView = () => {
         </div>
       </div>
 
-      {/* Modal de Criação / Edição */}
-      <EmpresaModal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEmpresaEmEdicao(null);
-        }}
-        onSave={handleSalvarEmpresa}
-        empresa={empresaEmEdicao}
-        pesquisas={pesquisas}
-      />
-
-      {/* Detalhe da Empresa */}
+      {/* Detalhe da Empresa (somente leitura de informações) */}
       {empresaSelecionada && (
         <EmpresaDetalhe
           empresa={empresaSelecionada}
           onClose={() => setEmpresaSelecionada(null)}
-          onEdit={(emp) => {
-            setEmpresaEmEdicao(emp);
-            setModalOpen(true);
-          }}
-          onNovaProposta={(emp) => {
-            setEmpresaSelecionada(null);
-          }}
         />
       )}
 

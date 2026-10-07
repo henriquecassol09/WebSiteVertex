@@ -18,7 +18,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 
-export const EmpresaDetalhe = ({ empresa, onClose, onEdit, onNovaProposta }) => {
+export const EmpresaDetalhe = ({ empresa, onClose }) => {
   const [notas, setNotas] = useState([]);
   const [loadingNotas, setLoadingNotas] = useState(false);
   const [novaNota, setNovaNota] = useState('');
@@ -135,23 +135,11 @@ export const EmpresaDetalhe = ({ empresa, onClose, onEdit, onNovaProposta }) => 
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => onEdit(empresa)}
-              className="h-8 px-3 text-xs font-medium rounded-md border border-vertex-border dark:border-vertex-dark-border text-vertex-dark dark:text-vertex-dark-text hover:bg-slate-50 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150"
-            >
-              Editar
-            </button>
-            <button
-              onClick={() => onNovaProposta(empresa)}
-              className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-md bg-vertex-orange text-white hover:bg-vertex-orange-hover active:scale-95 transition-all duration-200 shadow-sm hover:shadow-glow-orange"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Gerar Proposta</span>
-            </button>
-            <button
               onClick={onClose}
-              className="p-1.5 rounded-md text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150 ml-1"
+              className="p-1.5 rounded-md text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150 cursor-pointer"
+              title="Fechar"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -231,7 +219,10 @@ export const EmpresaDetalhe = ({ empresa, onClose, onEdit, onNovaProposta }) => 
               <div>
                 <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">E-mail Comercial:</span>
                 <div className="mt-1">
-                  {empresa.email ? (
+                  {empresa.email && 
+                   empresa.email.toLowerCase() !== 'não informado' && 
+                   empresa.email.includes('@') && 
+                   !empresa.email.includes('empresa.com.br') ? (
                     <a
                       href={`mailto:${empresa.email}`}
                       className="inline-flex items-center gap-1.5 font-semibold text-vertex-dark dark:text-vertex-dark-text hover:text-vertex-orange transition-colors truncate max-w-full"

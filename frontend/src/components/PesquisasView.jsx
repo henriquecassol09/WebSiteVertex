@@ -162,7 +162,10 @@ export const PesquisasView = () => {
         }
       }
 
-      const slug = (p.consulta || 'empresa').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const emailReal = (osmData?.email && osmData.email.includes('@') && !osmData.email.includes('empresa.com.br'))
+        ? osmData.email.trim()
+        : 'Não informado';
+
       const payload = {
         nome: p.consulta,
         categoria: categoria,
@@ -170,7 +173,7 @@ export const PesquisasView = () => {
         estado: estado,
         endereco: endereco,
         telefone: telefone,
-        email: osmData?.email || `contato@${slug || 'empresa'}.com.br`,
+        email: emailReal,
         site: '', // Garantido sem website (lead qualificado para criação de site)
         descricao: `Empresa prospectada via OpenStreetMap na região "${p.regiao}". Identificada sem presença digital / website.`,
         idPesquisa: p.idPesquisa

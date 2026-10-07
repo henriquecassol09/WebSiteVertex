@@ -292,7 +292,7 @@ out body 40;
       const categoria = traduzirCategoria(tags);
 
       const idUnico = `OSM-${elem.id}`;
-      const slug = nome.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const emailReal = (tags.email || tags['contact:email']) ? (tags.email || tags['contact:email']).trim() : 'Não informado';
 
       resultados.push({
         idPesquisa: idUnico,
@@ -305,7 +305,7 @@ out body 40;
         estado: cidadeInfo.estado,
         endereco: enderecoFormatado,
         telefone: telefone,
-        email: tags.email || tags['contact:email'] || `contato@${slug || 'empresa'}.com.br`,
+        email: emailReal,
         site: '', // Garantido sem website (lead qualificado para criação de site)
         lat: lat,
         lon: lon,
@@ -321,7 +321,6 @@ out body 40;
     const nomesJaAdicionados = new Set(resultados.map(r => r.consulta.toLowerCase()));
     ESTABELECIMENTOS_LOCAIS_REAIS.forEach((item, index) => {
       if (!nomesJaAdicionados.has(item.nome.toLowerCase())) {
-        const slug = item.nome.toLowerCase().replace(/[^a-z0-9]/g, '');
         resultados.push({
           idPesquisa: `OSM-LOC-${1000 + index}`,
           consulta: item.nome,
@@ -333,7 +332,7 @@ out body 40;
           estado: item.estado,
           endereco: item.endereco,
           telefone: item.telefone,
-          email: `contato@${slug}.com.br`,
+          email: 'Não informado',
           site: '',
           lat: item.lat,
           lon: item.lon,

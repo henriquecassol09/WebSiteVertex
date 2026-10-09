@@ -14,6 +14,7 @@ import {
   AlertCircle,
   X
 } from 'lucide-react';
+import { detectarCategoria } from '../utils/categoriaHelper';
 
 export const EmpresasView = () => {
   const [empresas, setEmpresas] = useState([]);
@@ -43,14 +44,15 @@ export const EmpresasView = () => {
 
     if (texto !== '') {
       const temResultados = empresas.some((emp) => {
+        const cat = detectarCategoria(emp.categoria, emp.nome);
         const matchTexto =
           emp.nome?.toLowerCase().includes(texto.toLowerCase()) ||
           emp.cidade?.toLowerCase().includes(texto.toLowerCase()) ||
-          emp.categoria?.toLowerCase().includes(texto.toLowerCase()) ||
+          cat?.toLowerCase().includes(texto.toLowerCase()) ||
           emp.email?.toLowerCase().includes(texto.toLowerCase());
 
         const matchCategoria =
-          filtroCategoria === '' || emp.categoria === filtroCategoria;
+          filtroCategoria === '' || cat === filtroCategoria;
 
         return matchTexto && matchCategoria;
       });
@@ -118,21 +120,22 @@ export const EmpresasView = () => {
   };
 
   const empresasFiltradas = empresas.filter((emp) => {
+    const cat = detectarCategoria(emp.categoria, emp.nome);
     const matchTexto =
       filtroTexto === '' ||
       emp.nome?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
       emp.cidade?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      emp.categoria?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
+      cat?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
       emp.email?.toLowerCase().includes(filtroTexto.toLowerCase());
 
     const matchCategoria =
-      filtroCategoria === '' || emp.categoria === filtroCategoria;
+      filtroCategoria === '' || cat === filtroCategoria;
 
     return matchTexto && matchCategoria;
   });
 
   const categoriasUnicas = Array.from(
-    new Set(empresas.map((e) => e.categoria).filter(Boolean))
+    new Set(empresas.map((e) => detectarCategoria(e.categoria, e.nome)).filter(Boolean))
   );
 
   const formatDate = (isoString) => {
@@ -257,8 +260,8 @@ export const EmpresasView = () => {
                     </td>
 
                     {/* Categoria */}
-                    <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text">
-                      {emp.categoria || '-'}
+                    <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text font-medium">
+                      {detectarCategoria(emp.categoria, emp.nome)}
                     </td>
 
                     {/* Cidade e Estado */}

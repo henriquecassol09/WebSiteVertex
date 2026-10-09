@@ -160,8 +160,48 @@ class ApiClient {
         method: 'POST',
         body: JSON.stringify(dados),
       });
-      tokenStorage.setTokens(res.accessToken, res.refreshToken);
+      if (res.accessToken) {
+        tokenStorage.setTokens(res.accessToken, res.refreshToken);
+      }
       return res;
+    },
+
+    verificarCodigoCadastro: async (dados) => {
+      const res = await this.request('/auth/verificar-codigo-cadastro', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+      if (res.accessToken) {
+        tokenStorage.setTokens(res.accessToken, res.refreshToken);
+      }
+      return res;
+    },
+
+    reenviarCodigoCadastro: async (dados) => {
+      return await this.request('/auth/reenviar-codigo-cadastro', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+
+    solicitarRecuperacaoSenha: async (dados) => {
+      return await this.request('/auth/recuperar-senha', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+
+    redefinirSenha: async (dados) => {
+      return await this.request('/auth/redefinir-senha', {
+        method: 'POST',
+        body: JSON.stringify(dados),
+      });
+    },
+
+    validarEmail: async (email) => {
+      return await this.request(`/auth/validar-email?email=${encodeURIComponent(email)}`, {
+        method: 'GET',
+      });
     },
 
     login: async (credenciais) => {

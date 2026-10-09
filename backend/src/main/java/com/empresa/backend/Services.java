@@ -9,8 +9,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +23,9 @@ class AuthService {
     private final UsuarioRepository usuarioRepository;
     private final ContaRepository contaRepository;
     private final SessaoRepository sessaoRepository;
+    private final VerificacaoRepository verificacaoRepository;
+    private final EmailService emailService;
+    private final EmailValidatorService emailValidatorService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
@@ -31,38 +36,129 @@ class AuthService {
     private long refreshTokenDays;
 
     @Transactional
-    AuthResponse registrar(RegistrarRequest req, HttpServletRequest httpReq) {
+    RegistrarResponse registrar(RegistrarRequest req) {
         String emailNormalizado = req.email().trim().toLowerCase();
 
-        if (usuarioRepository.existsByEmailIgnoreCase(emailNormalizado)) {
-            // Mensagem generica: evita enumeracao de contas existentes
-            throw new BusinessException("Nao foi possivel concluir o cadastro com os dados informados");
+        // 1. Validação Open-Source profunda de e-mail (sintaxe, DNS MX e domínios descartáveis)
+        EmailValidatorService.ResultadoValidacao validacao = emailValidatorService.validarEmail(emailNormalizado);
+        if (!validacao.valido()) {
+            throw new BusinessException(validacao.mensagem());
         }
 
+        // 2. Se já existir conta verificada com este e-mail, impede cadastro duplicado
+        Optional<Usuario> existenteOpt = usuarioRepository.findByEmailIgnoreCase(emailNormalizado);
+        if (existenteOpt.isPresent()) {
+            Usuario existente = existenteOpt.get();
+            if (existente.isEmailVerificado()) {
+                throw new BusinessException("Este e-mail já está cadastrado. Faça login na sua conta.");
+            } else {
+                // Limpa registro pendente antigo se houver
+                contaRepository.findByIdUsuarioAndIdProvedor(existente.getIdUsuario(), PROVEDOR_CREDENCIAIS)
+                        .ifPresent(contaRepository::delete);
+                usuarioRepository.delete(existente);
+            }
+        }
+
+        // 3. NÃO salva Usuario nem Conta no banco aqui!
+        // Salva apenas a intenção de cadastro com código de 6 dígitos temporário (15 min)
+        String codigo = HashUtil.gerarCodigoNumerico(6);
+        String valor = codigo + "||" + req.nome().trim() + "||" + passwordEncoder.encode(req.senha());
+        salvarCodigoVerificacao("CADASTRO:" + emailNormalizado, valor);
+
+        // 4. Dispara o e-mail com o código de segurança
+        emailService.enviarCodigoVerificacao(emailNormalizado, req.nome().trim(), codigo);
+
+        return RegistrarResponse.of(true, emailNormalizado, "Código de confirmação enviado para seu e-mail. Digite o código para concluir seu cadastro.");
+    }
+
+    @Transactional
+    AuthResponse verificarCodigoCadastro(VerificarCodigoRequest req, HttpServletRequest httpReq) {
+        String emailNormalizado = req.email().trim().toLowerCase();
+        String identificador = "CADASTRO:" + emailNormalizado;
+
+        Verificacao verificacao = verificacaoRepository.findTopByIdentificadorOrderByCriadoEmDesc(identificador)
+                .orElseThrow(() -> new BusinessException("Nenhum cadastro pendente encontrado para este e-mail. Solicite um novo código."));
+
+        if (verificacao.getExpiraEm().isBefore(Instant.now())) {
+            verificacaoRepository.delete(verificacao);
+            throw new BusinessException("Código de verificação expirado. Por favor, realize o cadastro novamente.");
+        }
+
+        String[] partes = verificacao.getValor().split("\\|\\|", 3);
+        String codigoEsperado = partes[0];
+        String nome = partes.length > 1 ? partes[1] : req.email().split("@")[0];
+        String senhaCriptografada = partes.length > 2 ? partes[2] : null;
+
+        if (!codigoEsperado.trim().equals(req.codigo().trim())) {
+            throw new BusinessException("Código de verificação incorreto");
+        }
+
+        // SOMENTE AGORA o usuário e a conta são oficialmente criados no banco de dados!
         Usuario usuario = Usuario.builder()
-                .nome(req.nome().trim())
+                .nome(nome)
                 .email(emailNormalizado)
-                .emailVerificado(false)
+                .emailVerificado(true)
                 .build();
         usuario = usuarioRepository.save(usuario);
 
-        Conta conta = Conta.builder()
-                .idContaProvedor(usuario.getIdUsuario())
-                .idProvedor(PROVEDOR_CREDENCIAIS)
-                .idUsuario(usuario.getIdUsuario())
-                .senha(passwordEncoder.encode(req.senha()))
-                .build();
-        contaRepository.save(conta);
+        if (senhaCriptografada != null) {
+            Conta conta = Conta.builder()
+                    .idContaProvedor(usuario.getIdUsuario())
+                    .idProvedor(PROVEDOR_CREDENCIAIS)
+                    .idUsuario(usuario.getIdUsuario())
+                    .senha(senhaCriptografada)
+                    .build();
+            contaRepository.save(conta);
+        }
+
+        // Remove a verificação utilizada
+        verificacaoRepository.delete(verificacao);
 
         return emitirTokens(usuario, httpReq);
+    }
+
+    @Transactional
+    MensagemResponse reenviarCodigoCadastro(ReenviarCodigoRequest req) {
+        String emailNormalizado = req.email().trim().toLowerCase();
+
+        if (usuarioRepository.existsByEmailIgnoreCase(emailNormalizado)) {
+            Usuario u = usuarioRepository.findByEmailIgnoreCase(emailNormalizado).orElse(null);
+            if (u != null && u.isEmailVerificado()) {
+                return MensagemResponse.of("Este e-mail já está cadastrado e verificado. Você pode fazer login normalmente.");
+            }
+        }
+
+        String identificador = "CADASTRO:" + emailNormalizado;
+        Verificacao verificacao = verificacaoRepository.findTopByIdentificadorOrderByCriadoEmDesc(identificador)
+                .orElseThrow(() -> new BusinessException("Nenhum cadastro pendente para este e-mail. Realize o cadastro novamente."));
+
+        String[] partes = verificacao.getValor().split("\\|\\|", 3);
+        String nome = partes.length > 1 ? partes[1] : "Usuário";
+        String senhaCriptografada = partes.length > 2 ? partes[2] : "";
+
+        String novoCodigo = HashUtil.gerarCodigoNumerico(6);
+        verificacao.setValor(novoCodigo + "||" + nome + "||" + senhaCriptografada);
+        verificacao.setExpiraEm(Instant.now().plus(Duration.ofMinutes(15)));
+        verificacaoRepository.save(verificacao);
+
+        emailService.enviarCodigoVerificacao(emailNormalizado, nome, novoCodigo);
+
+        return MensagemResponse.of("Novo código de verificação enviado para seu e-mail.");
     }
 
     @Transactional
     AuthResponse login(LoginRequest req, HttpServletRequest httpReq) {
         String emailNormalizado = req.email().trim().toLowerCase();
 
-        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(emailNormalizado)
-                .orElseThrow(() -> new AutenticacaoException("Credenciais invalidas"));
+        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmailIgnoreCase(emailNormalizado);
+        if (usuarioOpt.isEmpty()) {
+            if (verificacaoRepository.findTopByIdentificadorOrderByCriadoEmDesc("CADASTRO:" + emailNormalizado).isPresent()) {
+                throw new EmailNaoVerificadoException("Seu cadastro ainda não foi confirmado. Digite o código de 6 dígitos enviado para seu e-mail.");
+            }
+            throw new AutenticacaoException("Credenciais invalidas");
+        }
+
+        Usuario usuario = usuarioOpt.get();
 
         Conta conta = contaRepository.findByIdUsuarioAndIdProvedor(usuario.getIdUsuario(), PROVEDOR_CREDENCIAIS)
                 .orElseThrow(() -> new AutenticacaoException("Credenciais invalidas"));
@@ -72,7 +168,66 @@ class AuthService {
             throw new AutenticacaoException("Credenciais invalidas");
         }
 
+        if (!usuario.isEmailVerificado()) {
+            throw new EmailNaoVerificadoException("Seu e-mail ainda não foi verificado. Enviamos um código para " + emailNormalizado + ".");
+        }
+
         return emitirTokens(usuario, httpReq);
+    }
+
+    @Transactional
+    MensagemResponse solicitarRecuperacaoSenha(SolicitarRecuperacaoRequest req) {
+        String emailNormalizado = req.email().trim().toLowerCase();
+        usuarioRepository.findByEmailIgnoreCase(emailNormalizado).ifPresent(usuario -> {
+            String codigo = HashUtil.gerarCodigoNumerico(6);
+            salvarCodigoVerificacao("RECUPERACAO:" + emailNormalizado, codigo);
+            emailService.enviarCodigoRecuperacaoSenha(emailNormalizado, usuario.getNome(), codigo);
+        });
+
+        return MensagemResponse.of("Se o e-mail informado estiver cadastrado, enviamos as instruções com o código para redefinir a senha.");
+    }
+
+    @Transactional
+    MensagemResponse redefinirSenha(RedefinirSenhaRequest req) {
+        String emailNormalizado = req.email().trim().toLowerCase();
+        String identificador = "RECUPERACAO:" + emailNormalizado;
+
+        Verificacao verificacao = verificacaoRepository.findByIdentificadorAndValor(identificador, req.codigo())
+                .orElseThrow(() -> new BusinessException("Código de recuperação inválido"));
+
+        if (verificacao.getExpiraEm().isBefore(Instant.now())) {
+            verificacaoRepository.delete(verificacao);
+            throw new BusinessException("Código expirado. Solicite uma nova recuperação de senha.");
+        }
+
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(emailNormalizado)
+                .orElseThrow(() -> new BusinessException("Não foi possível redefinir a senha"));
+
+        Conta conta = contaRepository.findByIdUsuarioAndIdProvedor(usuario.getIdUsuario(), PROVEDOR_CREDENCIAIS)
+                .orElseThrow(() -> new BusinessException("Conta de credenciais não encontrada"));
+
+        conta.setSenha(passwordEncoder.encode(req.novaSenha()));
+        contaRepository.save(conta);
+
+        if (!usuario.isEmailVerificado()) {
+            usuario.setEmailVerificado(true);
+            usuarioRepository.save(usuario);
+        }
+
+        sessaoRepository.revogarTodasDoUsuario(usuario.getIdUsuario());
+        verificacaoRepository.delete(verificacao);
+
+        return new MensagemResponse("Senha alterada com sucesso! Você já pode entrar com sua nova senha.");
+    }
+
+    private void salvarCodigoVerificacao(String identificador, String codigo) {
+        verificacaoRepository.deleteByIdentificador(identificador);
+        Verificacao verificacao = Verificacao.builder()
+                .identificador(identificador)
+                .valor(codigo)
+                .expiraEm(Instant.now().plus(Duration.ofMinutes(15)))
+                .build();
+        verificacaoRepository.save(verificacao);
     }
 
     @Transactional

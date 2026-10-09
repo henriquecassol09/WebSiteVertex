@@ -17,6 +17,7 @@ import {
   Send,
   MessageSquare
 } from 'lucide-react';
+import { detectarCategoria } from '../utils/categoriaHelper';
 
 export const EmpresaDetalhe = ({ empresa, onClose }) => {
   const [notas, setNotas] = useState([]);
@@ -92,6 +93,14 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
 
   if (!empresa) return null;
 
+  const categoriaEfetiva = detectarCategoria(empresa.categoria, empresa.nome);
+  const descricaoLimpa = empresa.descricao 
+    ? empresa.descricao
+        .replace(/Empresa prospectada via OpenStreetMap na região "[^"]*"\.\s*/gi, '')
+        .replace(/Empresa prospectada na região "[^"]*"\.\s*/gi, '')
+        .replace(/Comércio Local/gi, categoriaEfetiva)
+    : `Atividade: ${categoriaEfetiva}. Sem website registrado.`;
+
   const formatDate = (isoString) => {
     if (!isoString) return '-';
     try {
@@ -121,11 +130,9 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
                 {empresa.nome}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
-                {empresa.categoria && (
-                  <span className="text-[11px] font-medium text-vertex-orange bg-vertex-orange-light dark:bg-vertex-orange/10 px-2 py-0.5 rounded">
-                    {empresa.categoria}
-                  </span>
-                )}
+                <span className="text-[11px] font-medium text-vertex-orange bg-vertex-orange-light dark:bg-vertex-orange/10 px-2 py-0.5 rounded">
+                  {categoriaEfetiva}
+                </span>
                 <span className="text-[11px] text-vertex-muted dark:text-vertex-dark-muted font-mono">
                   {empresa.idEmpresa}
                 </span>
@@ -154,18 +161,16 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
                   Tipo da Empresa & Atividade
                 </h3>
               </div>
-              {empresa.categoria && (
-                <span className="text-[11px] font-semibold text-vertex-orange bg-vertex-orange/10 dark:bg-vertex-orange/20 px-2.5 py-1 rounded-full">
-                  {empresa.categoria}
-                </span>
-              )}
+              <span className="text-[11px] font-semibold text-vertex-orange bg-vertex-orange/10 dark:bg-vertex-orange/20 px-2.5 py-1 rounded-full">
+                {categoriaEfetiva}
+              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
               <div>
                 <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Segmento / Categoria:</span>
                 <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text mt-0.5 block">
-                  {empresa.categoria || 'Não informado'}
+                  {categoriaEfetiva}
                 </span>
               </div>
 
@@ -176,16 +181,14 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
                 </span>
               </div>
 
-              {empresa.descricao && (
-                <div className="sm:col-span-2 pt-1 border-t border-vertex-border/50 dark:border-vertex-dark-border/50">
-                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium mb-1">
-                    Descrição & Atividades:
-                  </span>
-                  <p className="text-xs text-vertex-body dark:text-vertex-dark-text leading-relaxed whitespace-pre-wrap bg-slate-50/50 dark:bg-vertex-dark-card/50 p-3 rounded-lg border border-vertex-border/40 dark:border-vertex-dark-border/40">
-                    {empresa.descricao}
-                  </p>
-                </div>
-              )}
+              <div className="sm:col-span-2 pt-1 border-t border-vertex-border/50 dark:border-vertex-dark-border/50">
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium mb-1">
+                  Descrição & Atividades:
+                </span>
+                <p className="text-xs text-vertex-body dark:text-vertex-dark-text leading-relaxed whitespace-pre-wrap bg-slate-50/50 dark:bg-vertex-dark-card/50 p-3 rounded-lg border border-vertex-border/40 dark:border-vertex-dark-border/40">
+                  {descricaoLimpa}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -298,14 +301,12 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
                 </span>
               </div>
 
-              {empresa.endereco && (
-                <div className="sm:col-span-2">
-                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Endereço Completo:</span>
-                  <span className="font-medium text-vertex-dark dark:text-vertex-dark-text mt-0.5 block bg-slate-50/50 dark:bg-vertex-dark-card/50 p-2.5 rounded border border-vertex-border/40 dark:border-vertex-dark-border/40">
-                    {empresa.endereco}
-                  </span>
-                </div>
-              )}
+              <div className="sm:col-span-2">
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Endereço Completo:</span>
+                <span className="font-medium text-vertex-dark dark:text-vertex-dark-text mt-0.5 block bg-slate-50/50 dark:bg-vertex-dark-card/50 p-2.5 rounded border border-vertex-border/40 dark:border-vertex-dark-border/40">
+                  {empresa.endereco ? empresa.endereco.replace(/\s*\([^)]*\)/g, '').trim() : 'Centro'}
+                </span>
+              </div>
             </div>
 
             {/* Metadados de criação */}

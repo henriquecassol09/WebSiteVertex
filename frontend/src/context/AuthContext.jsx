@@ -54,8 +54,13 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (nome, email, senha) => {
     const res = await api.auth.registrar({ nome, email, senha });
+    return res;
+  };
+
+  const confirmRegister = async (email, codigo, nome) => {
+    const res = await api.auth.verificarCodigoCadastro({ email, codigo });
     const userData = {
-      nome,
+      nome: nome || email.split('@')[0],
       email,
     };
     setUser(userData);
@@ -88,6 +93,7 @@ export const AuthProvider = ({ children }) => {
         checkConnection,
         login,
         register,
+        confirmRegister,
         logout,
         logoutTodasSessoes,
         isAuthenticated: !!user,

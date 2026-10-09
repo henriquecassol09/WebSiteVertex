@@ -65,4 +65,10 @@ final class HashUtil {
             throw new IllegalStateException("SHA-256 indisponivel", e);
         }
     }
+
+    static String gerarCodigoNumerico(int digitos) {
+        int limite = (int) Math.pow(10, digitos);
+        int numero = RANDOM.nextInt(limite);
+        return String.format("%0" + digitos + "d", numero);
+    }
 }

@@ -25,6 +25,10 @@ class AutenticacaoException extends RuntimeException {
     AutenticacaoException(String message) { super(message); }
 }
 
+class EmailNaoVerificadoException extends RuntimeException {
+    EmailNaoVerificadoException(String message) { super(message); }
+}
+
 /**
  * Handler global: nunca expoe stack traces, mensagens internas de banco ou
  * detalhes de implementacao ao cliente. Tudo e logado no servidor com
@@ -43,6 +47,16 @@ public class Exceptions {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Object> handleBusiness(BusinessException ex) {
         return corpo(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    @ExceptionHandler(EmailNaoVerificadoException.class)
+    public ResponseEntity<Object> handleEmailNaoVerificado(EmailNaoVerificadoException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", HttpStatus.FORBIDDEN.value());
+        body.put("codigo", "EMAIL_NAO_VERIFICADO");
+        body.put("erro", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     @ExceptionHandler(AutenticacaoException.class)

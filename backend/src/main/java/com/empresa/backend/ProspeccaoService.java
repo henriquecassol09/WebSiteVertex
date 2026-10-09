@@ -15,7 +15,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -58,9 +60,11 @@ public class ProspeccaoService {
                   node["shop"]["name"]["website"!~"."](%s);
                   node["amenity"]["name"]["website"!~"."](%s);
                   node["craft"]["name"]["website"!~"."](%s);
+                  node["office"]["name"]["website"!~"."](%s);
+                  node["healthcare"]["name"]["website"!~"."](%s);
                 );
-                out body 40;
-                """.formatted(bbox, bbox, bbox);
+                out body 50;
+                """.formatted(bbox, bbox, bbox, bbox, bbox);
 
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -107,15 +111,34 @@ public class ProspeccaoService {
                             double lat = el.path("lat").asDouble();
                             double lon = el.path("lon").asDouble();
                             String cidade = identificarCidade(lat, lon, tags.path("addr:city").asText(null));
+                            String estado = "PR";
 
-                            String rua = tags.path("addr:street").asText(tags.path("addr:place").asText("Centro"));
-                            String numero = tags.hasNonNull("addr:housenumber") ? ", " + tags.path("addr:housenumber").asText() : "";
-                            String regiaoFormatada = "%s%s (%s - PR)".formatted(rua, numero, cidade);
+                            // Endereço limpo: apenas a rua e o número, SEM cidade e SEM estado
+                            String enderecoLimpo = extrairEnderecoLimpo(tags);
+
+                            // Atividade / Segmento específico (ex: Pizzaria, Farmácia, Loja de Roupas, etc.)
+                            String categoria = CategoriaDetector.detectar(tags, nome);
+                            // Horário de funcionamento
+                            String horario = formatarHorario(tags.path("opening_hours").asText(null));
+
+                            // Telefone se disponível
+                            String telefone = tags.path("phone").asText(tags.path("contact:phone").asText("Não informado"));
+
+                            // Serializa metadados estruturados no campo REGIAO da tabela PESQUISAS
+                            Map<String, String> meta = new LinkedHashMap<>();
+                            meta.put("endereco", enderecoLimpo);
+                            meta.put("cidade", cidade);
+                            meta.put("estado", estado);
+                            meta.put("categoria", categoria);
+                            meta.put("horario", horario);
+                            meta.put("telefone", telefone);
+
+                            String regiaoJson = objectMapper.writeValueAsString(meta);
 
                             Pesquisa p = Pesquisa.builder()
                                     .idUsuario(idUsuario)
                                     .consulta(nome)
-                                    .regiao(regiaoFormatada)
+                                    .regiao(regiaoJson)
                                     .status("completed")
                                     .build();
 
@@ -129,12 +152,42 @@ public class ProspeccaoService {
             }
         }
 
-        // Retorna as buscas persistidas no banco Neon que não foram salvas na tabela de empresas
+        // Retorna as buscas persistidas que não foram salvas na tabela de empresas
         return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 50))
                 .getContent()
                 .stream()
                 .map(PesquisaResponse::from)
                 .toList();
+    }
+
+    private String extrairEnderecoLimpo(JsonNode tags) {
+        String rua = tags.path("addr:street").asText(tags.path("addr:place").asText("Centro")).trim();
+        String numero = tags.hasNonNull("addr:housenumber") ? "Nº " + tags.path("addr:housenumber").asText().trim() : "";
+
+        if (rua.equalsIgnoreCase("Centro") || rua.isBlank()) {
+            return numero.isEmpty() ? "Centro" : "Centro, " + numero;
+        }
+        return numero.isEmpty() ? rua : rua + ", " + numero;
+    }
+    private String formatarHorario(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "Não informado";
+        }
+
+        String h = raw.trim();
+        return h.replace("Mo-Fr", "Seg a Sex")
+                .replace("Mo-Sa", "Seg a Sáb")
+                .replace("Mo-Su", "Seg a Dom")
+                .replace("Mo", "Seg")
+                .replace("Tu", "Ter")
+                .replace("We", "Qua")
+                .replace("Th", "Qui")
+                .replace("Fr", "Sex")
+                .replace("Sa", "Sáb")
+                .replace("Su", "Dom")
+                .replace("PH", "Feriados")
+                .replace("off", "Fechado")
+                .replace("24/7", "Aberto 24 horas");
     }
 
     private String identificarCidade(double lat, double lon, String cidadeInformada) {

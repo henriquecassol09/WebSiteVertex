@@ -13,6 +13,7 @@ function AppContent() {
   const [currentView, setCurrentView] = useState('login'); // 'empresas' | 'pesquisas' | 'login'
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
+  const [authEmail, setAuthEmail] = useState('');
 
   // Se o usuário não estiver autenticado, garante que a tela ativa seja o login
   React.useEffect(() => {
@@ -21,8 +22,9 @@ function AppContent() {
     }
   }, [isAuthenticated]);
 
-  const handleOpenAuth = (mode = 'login') => {
+  const handleOpenAuth = (mode = 'login', email = '') => {
     setAuthMode(mode);
+    setAuthEmail(email);
     setAuthModalOpen(true);
   };
 
@@ -33,12 +35,14 @@ function AppContent() {
         <LoginScreen
           onLoginSuccess={() => setCurrentView('pesquisas')}
           onSwitchToRegister={() => handleOpenAuth('register')}
+          onSwitchToVerify={(email) => handleOpenAuth('verify', email)}
         />
         <AuthModal
-          key={`auth-${authMode}-${authModalOpen}`}
+          key={`auth-${authMode}-${authModalOpen}-${authEmail}`}
           isOpen={authModalOpen}
           onClose={() => setAuthModalOpen(false)}
           initialMode={authMode}
+          initialEmail={authEmail}
         />
       </>
     );

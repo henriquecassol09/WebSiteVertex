@@ -4,7 +4,6 @@ import { useToast } from '../context/ToastContext';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  X, 
   BookmarkPlus, 
   CheckCircle2, 
   MapPin, 
@@ -12,12 +11,9 @@ import {
   Search,
   Trash2,
   Loader2,
-  Globe2,
-  Sparkles,
-  ExternalLink,
-  Phone,
-  Tag
+  Globe2
 } from 'lucide-react';
+import { detectarCategoria } from '../utils/categoriaHelper';
 
 export const PesquisasView = () => {
   const [pesquisas, setPesquisas] = useState([]);
@@ -28,7 +24,6 @@ export const PesquisasView = () => {
   const [page, setPage] = useState(0);
   const [pageSize] = useState(10);
   const [pageData, setPageData] = useState({ totalElements: 0, totalPages: 1 });
-  const [pesquisaDetalhe, setPesquisaDetalhe] = useState(null);
 
   const toast = useToast();
 
@@ -36,21 +31,6 @@ export const PesquisasView = () => {
     carregarPesquisas();
     carregarEmpresasSalvas();
   }, [page]);
-
-  // Fechar modal de detalhes ao pressionar a tecla ESC
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        if (pesquisaDetalhe) setPesquisaDetalhe(null);
-      }
-    };
-    if (pesquisaDetalhe) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [pesquisaDetalhe]);
 
   const carregarPesquisas = async () => {
     setLoading(true);
@@ -83,60 +63,44 @@ export const PesquisasView = () => {
 
   /**
    * Dispara a busca via Backend Java (Spring Boot)
-   * As buscas são consultadas na Overpass API e persistidas no banco Neon
    */
   const handleRealizarBusca = async () => {
     setBuscandoOverpass(true);
-    toast.info('Buscando empresas sem website na região via backend...');
 
     try {
-      const novosResultados = await api.pesquisas.prospectarRegiao();
-
-      if (!novosResultados || novosResultados.length === 0) {
-        toast.info('Nenhuma nova empresa sem site encontrada no momento.');
-      } else {
-        toast.success(`${novosResultados.length} empresas encontradas e registradas no banco Neon!`);
-      }
-
+      await api.pesquisas.prospectarRegiao();
+      toast.success('Busca concluída');
       await carregarPesquisas();
     } catch (err) {
-      toast.error(err.message || 'Erro ao realizar busca de empresas no backend');
+      toast.error(err.message || 'Erro ao realizar busca');
     } finally {
       setBuscandoOverpass(false);
     }
   };
 
   /**
-   * Salva uma empresa prospectada no banco Neon (aparece na aba Empresas).
-   * Conforme regra: uma empresa salva NÃO deve aparecer em nenhuma busca!
+   * Salva uma empresa prospectada no banco (aparece na aba Empresas).
+   * Uma empresa salva NÃO deve aparecer em nenhuma busca.
    */
   const handleSalvarEmpresa = async (p) => {
     setSalvandoId(p.idPesquisa);
     try {
-      let cidade = 'Laranjeiras do Sul';
-      let estado = 'PR';
-      let endereco = p.regiao || 'Centro';
-
-      if (p.regiao) {
-        const partes = p.regiao.split('-');
-        if (partes.length > 1) {
-          cidade = partes[0].trim();
-          estado = partes[1].trim().slice(0, 2).toUpperCase();
-        } else {
-          cidade = p.regiao.trim();
-        }
-      }
+      const cidade = p.cidade || 'Laranjeiras do Sul';
+      const estado = p.estado || 'PR';
+      const endereco = p.endereco || 'Centro';
+      const categoria = detectarCategoria(p.categoria, p.consulta);
+      const horario = p.horario || 'Não informado';
 
       const payload = {
         nome: p.consulta,
-        categoria: 'Comércio Local',
+        categoria: categoria,
         cidade: cidade,
         estado: estado,
         endereco: endereco,
-        telefone: 'Não informado',
+        telefone: p.telefone || 'Não informado',
         email: 'Não informado',
         site: '',
-        descricao: `Empresa prospectada via OpenStreetMap na região "${p.regiao}". Identificada sem presença digital / website.`,
+        descricao: `Atividade: ${categoria}. Horário de funcionamento: ${horario}. Sem website registrado.`,
         idPesquisa: p.idPesquisa
       };
 
@@ -147,10 +111,6 @@ export const PesquisasView = () => {
       setEmpresasSalvasIds((prev) => new Set([...prev, p.idPesquisa]));
       setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
 
-      if (pesquisaDetalhe?.idPesquisa === p.idPesquisa) {
-        setPesquisaDetalhe(null);
-      }
-
       toast.success(`"${p.consulta}" salva com sucesso! Movida para a aba Empresas.`);
     } catch (err) {
       toast.error(err.message || 'Erro ao salvar empresa');
@@ -160,8 +120,7 @@ export const PesquisasView = () => {
   };
 
   /**
-   * Exclui uma busca registrada no banco Neon
-   * Caso excluída, só voltará a aparecer se o usuário buscar novamente
+   * Exclui uma busca registrada no banco
    */
   const handleExcluirPesquisa = async (idPesquisa) => {
     if (!confirm('Deseja realmente excluir esta busca do banco de dados?')) return;
@@ -169,10 +128,7 @@ export const PesquisasView = () => {
       await api.pesquisas.excluir(idPesquisa);
       setPesquisas((prev) => prev.filter((p) => p.idPesquisa !== idPesquisa));
       setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
-      if (pesquisaDetalhe?.idPesquisa === idPesquisa) {
-        setPesquisaDetalhe(null);
-      }
-      toast.success('Busca excluída com sucesso do banco');
+      toast.success('Busca excluída com sucesso');
     } catch (err) {
       toast.error(err.message || 'Erro ao excluir busca');
     }
@@ -195,7 +151,7 @@ export const PesquisasView = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner com Botão Direto de Busca (SEM abrir outra tela) */}
+      {/* Top Banner com Botão Direto de Busca */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-vertex-dark dark:text-vertex-dark-text">
@@ -216,7 +172,7 @@ export const PesquisasView = () => {
           {buscandoOverpass ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Buscando no OpenStreetMap...</span>
+              <span>Buscando...</span>
             </>
           ) : (
             <>
@@ -262,57 +218,67 @@ export const PesquisasView = () => {
                   return (
                     <tr
                       key={p.idPesquisa}
-                      className="hover:bg-slate-50/70 dark:hover:bg-vertex-dark-surface/40 transition-colors duration-150 cursor-pointer"
-                      onClick={() => setPesquisaDetalhe(p)}
+                      className="hover:bg-slate-50/50 dark:hover:bg-vertex-dark-surface/30 transition-colors duration-150"
                     >
-                      {/* Empresa */}
-                      <td className="py-4 px-5 font-semibold text-vertex-dark dark:text-vertex-dark-text">
+                      {/* Empresa & Atividade */}
+                      <td className="py-4 px-5 font-semibold text-vertex-dark dark:text-vertex-dark-text select-text">
                         <div className="flex items-center gap-2">
                           <Building2 className="w-3.5 h-3.5 text-vertex-orange shrink-0" />
-                          <span>{p.consulta}</span>
+                          <div>
+                            <span className="block">{p.consulta}</span>
+                            <span className="text-[10px] font-medium text-vertex-orange bg-vertex-orange/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                              {detectarCategoria(p.categoria, p.consulta)}
+                            </span>
+                          </div>
                         </div>
                       </td>
 
-                      {/* Região & Endereço */}
-                      <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text">
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="w-3 h-3 text-red-500 shrink-0" />
-                          <span className="truncate max-w-xs">{p.regiao || 'Região Local'}</span>
+                      {/* Endereço & Cidade/Estado */}
+                      <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text select-text">
+                        <div className="flex items-start gap-1.5">
+                          <MapPin className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
+                          <div className="truncate max-w-xs">
+                            <span className="block font-medium">{p.endereco || 'Centro'}</span>
+                            <span className="block text-[11px] text-vertex-muted dark:text-vertex-dark-muted">
+                              {[p.cidade, p.estado].filter(Boolean).join(' - ') || p.regiao || 'Paraná'}
+                            </span>
+                          </div>
                         </div>
                       </td>
 
-                      {/* Presença Web / Status */}
+                      {/* Presença Web / Status (apenas tag informativa) */}
                       <td className="py-4 px-5">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 select-none">
                           <Globe2 className="w-3 h-3" />
                           Sem Website
                         </span>
                       </td>
 
                       {/* Data */}
-                      <td className="py-4 px-5 font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted">
+                      <td className="py-4 px-5 font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted select-text">
                         {formatDate(p.criadoEm)}
                       </td>
 
                       {/* ID */}
-                      <td className="py-4 px-5 text-right font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted">
+                      <td className="py-4 px-5 text-right font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted select-text">
                         {p.idPesquisa}
                       </td>
 
-                      {/* Ações: Salvar Empresa & Excluir Busca */}
-                      <td className="py-4 px-5 text-right" onClick={(e) => e.stopPropagation()}>
+                      {/* Ações ÚNICAS clicáveis: Salvar Empresa (ícone BookmarkPlus) & Excluir Busca (ícone Trash2) */}
+                      <td className="py-4 px-5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           {jaSalva ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 select-none">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               <span>Salva</span>
                             </span>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => handleSalvarEmpresa(p)}
                               disabled={isSalvando}
                               title="Salvar esta empresa na aba Empresas"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold bg-vertex-orange hover:bg-vertex-orange-hover active:scale-95 text-white shadow-sm hover:shadow-glow-orange transition-all duration-150 disabled:opacity-50"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold bg-vertex-orange hover:bg-vertex-orange-hover active:scale-95 text-white shadow-sm hover:shadow-glow-orange transition-all duration-150 disabled:opacity-50 cursor-pointer"
                             >
                               <BookmarkPlus className="w-3.5 h-3.5" />
                               <span>{isSalvando ? 'Salvando...' : 'Salvar Empresa'}</span>
@@ -320,9 +286,10 @@ export const PesquisasView = () => {
                           )}
 
                           <button
+                            type="button"
                             onClick={() => handleExcluirPesquisa(p.idPesquisa)}
-                            title="Excluir esta busca"
-                            className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 text-vertex-muted dark:text-vertex-dark-muted hover:text-red-600 dark:hover:text-red-400 active:scale-95 transition-all duration-150"
+                            title="Excluir esta empresa da busca"
+                            className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 text-vertex-muted dark:text-vertex-dark-muted hover:text-red-600 dark:hover:text-red-400 active:scale-95 transition-all duration-150 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -348,16 +315,18 @@ export const PesquisasView = () => {
             </span>
             <div className="flex items-center gap-1">
               <button
+                type="button"
                 disabled={page === 0}
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150"
+                className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <button
+                type="button"
                 disabled={page + 1 >= pageData.totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150"
+                className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
@@ -365,132 +334,6 @@ export const PesquisasView = () => {
           </div>
         </div>
       </div>
-
-      {/* Modal de Detalhes da Pesquisa ao clicar na linha */}
-      {pesquisaDetalhe && (() => {
-        const osmDetalhe = osmCache[pesquisaDetalhe.idPesquisa] || pesquisaDetalhe;
-        const jaSalva = empresasSalvasIds.has(pesquisaDetalhe.idPesquisa);
-        const isSalvando = salvandoId === pesquisaDetalhe.idPesquisa;
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal dark:shadow-dark-modal rounded-xl max-w-lg w-full p-6 space-y-4 transition-colors">
-              <div className="flex items-center justify-between pb-3 border-b border-vertex-border dark:border-vertex-dark-border">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-md bg-orange-50 dark:bg-orange-950/40 text-vertex-orange">
-                    <Building2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold text-vertex-dark dark:text-vertex-dark-text">
-                      Detalhes da Prospecção
-                    </h2>
-                    <p className="text-[11px] text-vertex-muted dark:text-vertex-dark-muted">
-                      Dados mapeados via OpenStreetMap
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setPesquisaDetalhe(null)}
-                  className="p-1 rounded-md text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-3.5 text-xs">
-                <div>
-                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">ID da Pesquisa:</span>
-                  <span className="font-mono text-vertex-dark dark:text-vertex-dark-text font-medium">{pesquisaDetalhe.idPesquisa}</span>
-                </div>
-
-                <div>
-                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Empresa / Estabelecimento:</span>
-                  <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text text-sm">{pesquisaDetalhe.consulta}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Categoria:</span>
-                    <span className="text-vertex-body dark:text-vertex-dark-text font-medium">
-                      {osmDetalhe.categoria || 'Comércio Local'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Telefone:</span>
-                    <span className="text-vertex-body dark:text-vertex-dark-text font-medium">
-                      {osmDetalhe.telefone || 'Não informado no mapa'}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Região & Localização:</span>
-                  <span className="text-vertex-body dark:text-vertex-dark-text">
-                    {osmDetalhe.endereco || pesquisaDetalhe.regiao || 'Localidade não informada'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-md bg-slate-50 dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border">
-                  <div>
-                    <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[10px] uppercase font-bold tracking-wider">Presença Digital</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
-                      <Globe2 className="w-3 h-3" />
-                      Sem Website Registrado
-                    </span>
-                  </div>
-                  {osmDetalhe.googleMapsUrl && (
-                    <a
-                      href={osmDetalhe.googleMapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border text-vertex-dark dark:text-vertex-dark-text hover:text-vertex-orange transition-colors"
-                    >
-                      <MapPin className="w-3 h-3 text-vertex-orange" />
-                      <span>Google Maps</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-
-                <div>
-                  <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Data da Prospecção:</span>
-                  <span className="font-mono text-vertex-muted dark:text-vertex-dark-muted">{formatDate(pesquisaDetalhe.criadoEm)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-vertex-border dark:border-vertex-dark-border">
-                <button
-                  onClick={() => handleExcluirPesquisa(pesquisaDetalhe.idPesquisa)}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 active:scale-95 transition-all duration-150 cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Excluir Busca</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  {!jaSalva && (
-                    <button
-                      onClick={() => handleSalvarEmpresa(pesquisaDetalhe)}
-                      disabled={isSalvando}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold bg-vertex-orange hover:bg-vertex-orange-hover active:scale-95 text-white shadow-sm transition-all duration-150 disabled:opacity-50 cursor-pointer"
-                    >
-                      <BookmarkPlus className="w-3.5 h-3.5" />
-                      <span>{isSalvando ? 'Salvando...' : 'Salvar Empresa'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => setPesquisaDetalhe(null)}
-                    className="px-4 py-2 text-xs font-medium rounded-md border border-vertex-border dark:border-vertex-dark-border text-vertex-dark dark:text-vertex-dark-text hover:bg-slate-50 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150 cursor-pointer"
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 };

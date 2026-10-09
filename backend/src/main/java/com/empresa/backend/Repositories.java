@@ -39,6 +39,11 @@ interface ContaRepository extends JpaRepository<Conta, String> {
 
 interface VerificacaoRepository extends JpaRepository<Verificacao, String> {
     Optional<Verificacao> findByIdentificadorAndValor(String identificador, String valorHash);
+    Optional<Verificacao> findTopByIdentificadorOrderByCriadoEmDesc(String identificador);
+
+    @Modifying
+    @Query("DELETE FROM Verificacao v WHERE v.identificador = :identificador")
+    void deleteByIdentificador(@Param("identificador") String identificador);
 }
 
 interface PesquisaRepository extends JpaRepository<Pesquisa, String> {

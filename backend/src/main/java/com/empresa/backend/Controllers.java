@@ -19,10 +19,36 @@ import java.util.List;
 class AuthController {
 
     private final AuthService authService;
+    private final EmailValidatorService emailValidatorService;
+
+    @GetMapping("/validar-email")
+    ResponseEntity<EmailValidatorService.ResultadoValidacao> validarEmail(@RequestParam String email) {
+        return ResponseEntity.ok(emailValidatorService.validarEmail(email));
+    }
 
     @PostMapping("/registrar")
-    ResponseEntity<AuthResponse> registrar(@Valid @RequestBody RegistrarRequest req, HttpServletRequest http) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registrar(req, http));
+    ResponseEntity<RegistrarResponse> registrar(@Valid @RequestBody RegistrarRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registrar(req));
+    }
+
+    @PostMapping("/verificar-codigo-cadastro")
+    ResponseEntity<AuthResponse> verificarCodigoCadastro(@Valid @RequestBody VerificarCodigoRequest req, HttpServletRequest http) {
+        return ResponseEntity.ok(authService.verificarCodigoCadastro(req, http));
+    }
+
+    @PostMapping("/reenviar-codigo-cadastro")
+    ResponseEntity<MensagemResponse> reenviarCodigoCadastro(@Valid @RequestBody ReenviarCodigoRequest req) {
+        return ResponseEntity.ok(authService.reenviarCodigoCadastro(req));
+    }
+
+    @PostMapping("/recuperar-senha")
+    ResponseEntity<MensagemResponse> solicitarRecuperacaoSenha(@Valid @RequestBody SolicitarRecuperacaoRequest req) {
+        return ResponseEntity.ok(authService.solicitarRecuperacaoSenha(req));
+    }
+
+    @PostMapping("/redefinir-senha")
+    ResponseEntity<MensagemResponse> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest req) {
+        return ResponseEntity.ok(authService.redefinirSenha(req));
     }
 
     @PostMapping("/login")

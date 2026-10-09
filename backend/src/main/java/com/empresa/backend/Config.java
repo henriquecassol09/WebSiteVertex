@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -104,6 +105,7 @@ class RateLimitFilter extends OncePerRequestFilter {
 }
 
 @Configuration
+@EnableAsync
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
@@ -145,7 +147,17 @@ public class Config {
 
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/health").permitAll()
-                .requestMatchers("/api/auth/registrar", "/api/auth/login", "/api/auth/refresh").permitAll()
+                .requestMatchers(
+                    "/api/auth/registrar",
+                    "/api/auth/login",
+                    "/api/auth/refresh",
+                    "/api/auth/verificar-codigo-cadastro",
+                    "/api/auth/reenviar-codigo-cadastro",
+                    "/api/auth/recuperar-senha",
+                    "/api/auth/redefinir-senha",
+                    "/api/auth/codigo-dev",
+                    "/api/auth/validar-email"
+                ).permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .anyRequest().authenticated()
             )

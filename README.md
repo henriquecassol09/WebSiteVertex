@@ -16,4 +16,4 @@ Este documento estabelece as diretrizes técnicas, arquiteturais e legais refere
 
 ## 3. Github dos colaboradores
 
-@[otaviokauan]
+@otaviokauan

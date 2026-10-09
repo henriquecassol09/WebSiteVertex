@@ -8,7 +8,6 @@ import {
   Phone, 
   Mail, 
   Globe, 
-  Calendar, 
   FileText, 
   Plus, 
   Trash2, 
@@ -295,28 +294,11 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
               </div>
 
               <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Origem da Busca:</span>
-                <span className="font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted mt-0.5 block truncate">
-                  {empresa.idPesquisa ? `ID Pesquisa: ${empresa.idPesquisa}` : 'Cadastro direto'}
-                </span>
-              </div>
-
-              <div className="sm:col-span-2">
                 <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Endereço Completo:</span>
                 <span className="font-medium text-vertex-dark dark:text-vertex-dark-text mt-0.5 block bg-slate-50/50 dark:bg-vertex-dark-card/50 p-2.5 rounded border border-vertex-border/40 dark:border-vertex-dark-border/40">
                   {empresa.endereco ? empresa.endereco.replace(/\s*\([^)]*\)/g, '').trim() : 'Centro'}
                 </span>
               </div>
-            </div>
-
-            {/* Metadados de criação */}
-            <div className="pt-2 border-t border-vertex-border/50 dark:border-vertex-dark-border/50 flex flex-wrap gap-4 text-[11px] text-vertex-muted dark:text-vertex-dark-muted font-mono">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Cadastrado em: {formatDate(empresa.criadoEm)}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" /> Atualizado em: {formatDate(empresa.atualizadoEm)}
-              </span>
             </div>
           </div>
 

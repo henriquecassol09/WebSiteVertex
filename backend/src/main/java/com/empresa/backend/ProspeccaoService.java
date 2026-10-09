@@ -41,6 +41,7 @@ public class ProspeccaoService {
     private static final List<CidadeCoordenada> CIDADES = List.of(
             new CidadeCoordenada("Laranjeiras do Sul", -25.4086, -52.4161),
             new CidadeCoordenada("Rio Bonito do Iguaçu", -25.4931, -52.5342),
+            new CidadeCoordenada("Porto Barreiro", -25.5469, -52.4078),
             new CidadeCoordenada("Virmond", -25.3817, -52.2003),
             new CidadeCoordenada("Cantagalo", -25.3744, -52.0089),
             new CidadeCoordenada("Nova Laranjeiras", -25.3056, -52.5408)
@@ -52,8 +53,8 @@ public class ProspeccaoService {
 
     @Transactional
     public List<PesquisaResponse> prospectarEmpresasSemSite(String idUsuario) {
-        // Bounding Box delimitando Laranjeiras do Sul, Rio Bonito do Iguaçu, Virmond, Cantagalo e Nova Laranjeiras
-        String bbox = "-25.55,-52.60,-25.25,-51.95";
+        // Bounding Box delimitando Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras
+        String bbox = "-25.68,-52.60,-25.25,-51.95";
         String query = """
                 [out:json][timeout:25];
                 (

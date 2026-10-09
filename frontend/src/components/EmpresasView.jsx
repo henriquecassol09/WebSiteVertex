@@ -230,20 +230,19 @@ export const EmpresasView = () => {
                 <th className="py-3.5 px-5">Telefone</th>
                 <th className="py-3.5 px-5">E-mail</th>
                 <th className="py-3.5 px-5">Site</th>
-                <th className="py-3.5 px-5">Cadastrado em</th>
                 <th className="py-3.5 px-5 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-vertex-border dark:divide-vertex-dark-border">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="py-12 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
+                  <td colSpan="7" className="py-12 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
                     Carregando empresas...
                   </td>
                 </tr>
               ) : empresasFiltradas.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="py-16 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
+                  <td colSpan="7" className="py-16 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
                     Nenhuma empresa encontrada.
                   </td>
                 </tr>
@@ -299,11 +298,6 @@ export const EmpresasView = () => {
                       ) : (
                         '-'
                       )}
-                    </td>
-
-                    {/* Criado em */}
-                    <td className="py-4 px-5 font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted">
-                      {formatDate(emp.criadoEm)}
                     </td>
 
                     {/* Ações */}

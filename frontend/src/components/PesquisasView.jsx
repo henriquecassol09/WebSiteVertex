@@ -158,7 +158,7 @@ export const PesquisasView = () => {
             Busca
           </h1>
           <p className="text-xs text-vertex-muted dark:text-vertex-dark-muted mt-1 leading-relaxed">
-            Estabelecimentos comerciais sem website em <strong>Laranjeiras do Sul, Rio Bonito do Iguaçu, Virmond, Cantagalo e Nova Laranjeiras</strong>.
+            Estabelecimentos comerciais sem website em <strong>Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras</strong>.
           </p>
         </div>
 

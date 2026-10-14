@@ -116,6 +116,12 @@ class PesquisaController {
 class EmpresaController {
 
     private final EmpresaService empresaService;
+    private final ProspeccaoService prospeccaoService;
+
+    @GetMapping("/consultar-cnpj/{cnpj}")
+    ResponseEntity<DadosCnpjResponse> consultarCnpj(@PathVariable String cnpj) {
+        return ResponseEntity.ok(prospeccaoService.consultarCnpjPublico(cnpj));
+    }
 
     @PostMapping
     ResponseEntity<EmpresaResponse> criar(@Valid @RequestBody EmpresaRequest req) {

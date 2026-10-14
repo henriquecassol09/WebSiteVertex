@@ -83,6 +83,8 @@ app:
       auth-refill-minutes: 1
       api-capacity: 100
       api-refill-minutes: 1
+  tavily:
+    api-key: ${TAVILY_API_KEY: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}
 
 management:
   endpoints:

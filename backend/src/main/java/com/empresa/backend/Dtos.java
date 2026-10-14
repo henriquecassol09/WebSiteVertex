@@ -92,7 +92,10 @@ record PesquisaResponse(
     String estado,
     String categoria,
     String horario,
-    String telefone
+    String telefone,
+    String email,
+    String cnpj,
+    String site
 ) {
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
 
@@ -104,6 +107,9 @@ record PesquisaResponse(
         String categoria = "Comércio Local";
         String horario = "Não informado";
         String telefone = "Não informado";
+        String emailEmpresa = "Não informado";
+        String cnpj = null;
+        String site = "";
 
         if (raw != null && raw.trim().startsWith("{")) {
             try {
@@ -114,6 +120,9 @@ record PesquisaResponse(
                 categoria = node.path("categoria").asText(categoria);
                 horario = node.path("horario").asText(horario);
                 telefone = node.path("telefone").asText(telefone);
+                emailEmpresa = node.path("email").asText(emailEmpresa);
+                cnpj = node.path("cnpj").asText(null);
+                site = node.path("site").asText("");
             } catch (Exception ignored) {}
         } else if (raw != null && !raw.isBlank()) {
             if (raw.contains("(") && raw.contains(")")) {
@@ -145,7 +154,10 @@ record PesquisaResponse(
             estado,
             categoriaRefinada,
             horario,
-            telefone
+            telefone,
+            emailEmpresa,
+            cnpj,
+            site
         );
     }
 }
@@ -162,19 +174,20 @@ record EmpresaRequest(
     @Size(max = 255) String email,
     @Size(max = 255) String site,
     @Size(max = 4000) String descricao,
+    @Size(max = 20) String cnpj,
     String idPesquisa
 ) {}
 
 record EmpresaResponse(
     String idEmpresa, String nome, String categoria, String cidade, String estado,
     String endereco, String telefone, String email, String site, String descricao,
-    Instant criadoEm, Instant atualizadoEm
+    String cnpj, Instant criadoEm, Instant atualizadoEm
 ) {
     static EmpresaResponse from(Empresa e) {
         String cat = CategoriaDetector.refinar(e.getCategoria(), e.getNome());
         return new EmpresaResponse(e.getIdEmpresa(), e.getNome(), cat, e.getCidade(),
                 e.getEstado(), e.getEndereco(), e.getTelefone(), e.getEmail(), e.getSite(),
-                e.getDescricao(), e.getCriadoEm(), e.getAtualizadoEm());
+                e.getDescricao(), e.getCnpj(), e.getCriadoEm(), e.getAtualizadoEm());
     }
 }
 
@@ -200,3 +213,17 @@ record PropostaResponse(
 // ===== Notas =====
 
 record NotaRequest(@NotBlank @Size(max = 4000) String conteudo) {}
+
+// ===== Consulta CNPJ =====
+
+record DadosCnpjResponse(
+    String cnpj,
+    String razaoSocial,
+    String nomeFantasia,
+    String telefone,
+    String email,
+    String endereco,
+    String cidade,
+    String estado,
+    String situacao
+) {}

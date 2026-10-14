@@ -364,6 +364,7 @@ class EmpresaService {
                 .email(req.email())
                 .site(req.site())
                 .descricao(req.descricao())
+                .cnpj(req.cnpj())
                 .build();
         return EmpresaResponse.from(empresaRepository.save(empresa));
     }
@@ -388,6 +389,7 @@ class EmpresaService {
         empresa.setEmail(req.email());
         empresa.setSite(req.site());
         empresa.setDescricao(req.descricao());
+        empresa.setCnpj(req.cnpj());
         return EmpresaResponse.from(empresaRepository.save(empresa));
     }
 

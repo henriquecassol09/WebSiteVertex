@@ -11,7 +11,10 @@ import {
   Search,
   Trash2,
   Loader2,
-  Globe2
+  Globe2,
+  Phone,
+  Mail,
+  FileText
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
 
@@ -78,6 +81,15 @@ export const PesquisasView = () => {
     }
   };
 
+  const formatarCnpj = (cnpj) => {
+    if (!cnpj) return null;
+    const limpo = String(cnpj).replace(/\D/g, '');
+    if (limpo.length === 14) {
+      return limpo.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    }
+    return cnpj;
+  };
+
   /**
    * Salva uma empresa prospectada no banco (aparece na aba Empresas).
    * Uma empresa salva NÃO deve aparecer em nenhuma busca.
@@ -91,16 +103,26 @@ export const PesquisasView = () => {
       const categoria = detectarCategoria(p.categoria, p.consulta);
       const horario = p.horario || 'Não informado';
 
+      const emailValido = p.email && p.email !== 'Não informado' && !p.email.includes('empresa.com.br')
+        ? p.email
+        : 'Não informado';
+      const telefoneValido = p.telefone && p.telefone !== 'Não informado'
+        ? p.telefone
+        : 'Não informado';
+
       const payload = {
         nome: p.consulta,
         categoria: categoria,
         cidade: cidade,
         estado: estado,
         endereco: endereco,
-        telefone: p.telefone || 'Não informado',
-        email: 'Não informado',
-        site: '',
-        descricao: `Atividade: ${categoria}. Horário de funcionamento: ${horario}. Sem website registrado.`,
+        telefone: telefoneValido,
+        email: emailValido,
+        site: p.site || '',
+        descricao: p.site 
+          ? `Atividade: ${categoria}. Horário de funcionamento: ${horario}.`
+          : `Atividade: ${categoria}. Horário de funcionamento: ${horario}. Sem website registrado.`,
+        cnpj: p.cnpj || null,
         idPesquisa: p.idPesquisa
       };
 
@@ -191,6 +213,7 @@ export const PesquisasView = () => {
               <tr className="border-b border-vertex-border dark:border-vertex-dark-border bg-slate-50/70 dark:bg-vertex-dark-surface/60 text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
                 <th className="py-3.5 px-5">Empresa / Estabelecimento</th>
                 <th className="py-3.5 px-5">Região & Endereço</th>
+                <th className="py-3.5 px-5">Contato & CNPJ</th>
                 <th className="py-3.5 px-5">Presença Web</th>
                 <th className="py-3.5 px-5">Data da Busca</th>
                 <th className="py-3.5 px-5 text-right">ID Pesquisa</th>
@@ -200,13 +223,13 @@ export const PesquisasView = () => {
             <tbody className="divide-y divide-vertex-border dark:divide-vertex-dark-border">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
+                  <td colSpan="7" className="py-12 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
                     Carregando resultados da busca...
                   </td>
                 </tr>
               ) : pesquisas.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="py-16 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
+                  <td colSpan="7" className="py-16 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
                     Nenhuma busca realizada ainda. Clique no botão <strong>"Realizar Busca"</strong> acima para carregar as empresas sem site da sua região.
                   </td>
                 </tr>
@@ -246,12 +269,58 @@ export const PesquisasView = () => {
                         </div>
                       </td>
 
-                      {/* Presença Web / Status (apenas tag informativa) */}
+                      {/* Contato & CNPJ (SearXNG + BrasilAPI) */}
+                      <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text select-text">
+                        <div className="space-y-1">
+                          {p.cnpj ? (
+                            <div className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800/40">
+                              <FileText className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
+                              <span>{formatarCnpj(p.cnpj)}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-vertex-muted dark:text-vertex-dark-muted block">
+                              Não localizado
+                            </span>
+                          )}
+
+                          {(p.telefone && p.telefone !== 'Não informado') || (p.email && p.email !== 'Não informado' && !p.email.includes('empresa.com.br')) ? (
+                            <div className="flex flex-col gap-0.5 text-[11px]">
+                              {p.telefone && p.telefone !== 'Não informado' && (
+                                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
+                                  <Phone className="w-3 h-3 shrink-0" />
+                                  <span>{p.telefone}</span>
+                                </span>
+                              )}
+                              {p.email && p.email !== 'Não informado' && !p.email.includes('empresa.com.br') && (
+                                <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 truncate max-w-[180px]">
+                                  <Mail className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{p.email}</span>
+                                </span>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
+
+                      {/* Presença Web / Status */}
                       <td className="py-4 px-5">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 select-none">
-                          <Globe2 className="w-3 h-3" />
-                          Sem Website
-                        </span>
+                        {p.site ? (
+                          <a
+                            href={p.site.startsWith('http') ? p.site : `https://${p.site}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 hover:underline max-w-[150px] truncate"
+                            title={p.site}
+                          >
+                            <Globe2 className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{p.site.replace(/^https?:\/\/(www\.)?/, '')}</span>
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 select-none">
+                            <Globe2 className="w-3 h-3" />
+                            Sem Website
+                          </span>
+                        )}
                       </td>
 
                       {/* Data */}

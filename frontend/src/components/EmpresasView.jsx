@@ -49,7 +49,8 @@ export const EmpresasView = () => {
           emp.nome?.toLowerCase().includes(texto.toLowerCase()) ||
           emp.cidade?.toLowerCase().includes(texto.toLowerCase()) ||
           cat?.toLowerCase().includes(texto.toLowerCase()) ||
-          emp.email?.toLowerCase().includes(texto.toLowerCase());
+          emp.email?.toLowerCase().includes(texto.toLowerCase()) ||
+          emp.cnpj?.toLowerCase().includes(texto.toLowerCase());
 
         const matchCategoria =
           filtroCategoria === '' || cat === filtroCategoria;
@@ -119,6 +120,15 @@ export const EmpresasView = () => {
     }
   };
 
+  const formatarCnpj = (cnpj) => {
+    if (!cnpj) return null;
+    const limpo = String(cnpj).replace(/\D/g, '');
+    if (limpo.length === 14) {
+      return limpo.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    }
+    return cnpj;
+  };
+
   const empresasFiltradas = empresas.filter((emp) => {
     const cat = detectarCategoria(emp.categoria, emp.nome);
     const matchTexto =
@@ -126,7 +136,8 @@ export const EmpresasView = () => {
       emp.nome?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
       emp.cidade?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
       cat?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      emp.email?.toLowerCase().includes(filtroTexto.toLowerCase());
+      emp.email?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
+      emp.cnpj?.toLowerCase().includes(filtroTexto.toLowerCase());
 
     const matchCategoria =
       filtroCategoria === '' || cat === filtroCategoria;
@@ -185,7 +196,7 @@ export const EmpresasView = () => {
                   handleBuscar();
                 }
               }}
-              placeholder="Buscar por nome, cidade ou e-mail..."
+              placeholder="Buscar por nome, CNPJ, cidade ou e-mail..."
               className="w-full h-9 pl-9 pr-3.5 text-xs rounded-md border border-vertex-border dark:border-vertex-dark-border bg-slate-50/60 dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text placeholder:text-slate-400 dark:placeholder:text-slate-500/70 focus:bg-white dark:focus:bg-vertex-dark-surface focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-all duration-200"
             />
           </div>
@@ -255,7 +266,12 @@ export const EmpresasView = () => {
                   >
                     {/* Nome */}
                     <td className="py-4 px-5 font-semibold text-vertex-dark dark:text-vertex-dark-text">
-                      {emp.nome}
+                      <div>{emp.nome}</div>
+                      {emp.cnpj && (
+                        <div className="font-mono text-[10px] text-purple-700 dark:text-purple-400 font-medium mt-0.5">
+                          CNPJ: {formatarCnpj(emp.cnpj)}
+                        </div>
+                      )}
                     </td>
 
                     {/* Categoria */}

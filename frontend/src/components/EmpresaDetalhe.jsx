@@ -100,6 +100,17 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
         .replace(/Comércio Local/gi, categoriaEfetiva)
     : `Atividade: ${categoriaEfetiva}. Sem website registrado.`;
 
+  const formatarCnpj = (cnpj) => {
+    if (!cnpj) return null;
+    const limpo = String(cnpj).replace(/\D/g, '');
+    if (limpo.length === 14) {
+      return limpo.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    }
+    return cnpj;
+  };
+
+  const cnpjValor = empresa.cnpj || empresa.documento || empresa.dadosBrutos?.cnpj || null;
+
   const formatDate = (isoString) => {
     if (!isoString) return '-';
     try {
@@ -149,6 +160,7 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
             </button>
           </div>
         </div>
+
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* SEÇÃO 1: TIPO DA EMPRESA */}
@@ -191,12 +203,12 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
             </div>
           </div>
 
-          {/* SEÇÃO 2: CONTATO */}
+          {/* SEÇÃO 2: CONTATO & INFORMAÇÕES */}
           <div className="bg-white dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded-xl p-5 shadow-subtle space-y-3.5 transition-colors">
             <div className="flex items-center gap-2 border-b border-vertex-border/70 dark:border-vertex-dark-border pb-2.5">
               <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <h3 className="text-xs font-bold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
-                Canais de Contato
+                Canais de Contato e Informações
               </h3>
             </div>
 
@@ -238,7 +250,21 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="sm:col-start-2 sm:row-start-2">
+                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">CNPJ:</span>
+                <div className="mt-1">
+                  {cnpjValor ? (
+                    <span className="inline-flex items-center gap-1.5 font-semibold font-mono text-vertex-dark dark:text-vertex-dark-text">
+                      <FileText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                      <span>{formatarCnpj(cnpjValor)}</span>
+                    </span>
+                  ) : (
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted">Não informado</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-start-1 sm:row-start-2">
                 <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Website Oficial:</span>
                 <div className="mt-1">
                   {empresa.site ? (

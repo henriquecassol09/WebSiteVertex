@@ -260,6 +260,9 @@ class Empresa {
     @Column(name = "DESCRICAO", columnDefinition = "TEXT")
     private String descricao;
 
+    @Column(name = "CNPJ")
+    private String cnpj;
+
     @Column(name = "DADOS_BRUTOS", columnDefinition = "jsonb")
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     private String dadosBrutos;

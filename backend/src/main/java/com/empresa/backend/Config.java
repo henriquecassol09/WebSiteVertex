@@ -156,7 +156,8 @@ public class Config {
                     "/api/auth/recuperar-senha",
                     "/api/auth/redefinir-senha",
                     "/api/auth/codigo-dev",
-                    "/api/auth/validar-email"
+                    "/api/auth/validar-email",
+                    "/api/empresas/consultar-cnpj/**"
                 ).permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .anyRequest().authenticated()

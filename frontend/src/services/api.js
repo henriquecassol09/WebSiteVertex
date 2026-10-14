@@ -298,6 +298,11 @@ class ApiClient {
       return await this.request(`/empresas/${id}`, {
         method: 'DELETE',
       });
+    },
+
+    consultarCnpj: async (cnpj) => {
+      const limpo = String(cnpj).replace(/\D/g, '');
+      return await this.request(`/empresas/consultar-cnpj/${limpo}`);
     }
   };
 

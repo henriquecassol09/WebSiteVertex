@@ -34,7 +34,7 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-vertex-dark-card/90 backdrop-blur-md border-b border-vertex-border dark:border-vertex-dark-border transition-colors duration-700 ease-in-out">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Marca VERTEX */}
           <div className="flex items-center gap-8">

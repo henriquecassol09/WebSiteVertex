@@ -207,29 +207,28 @@ export const PesquisasView = () => {
 
       {/* Tabela de Empresas Encontradas na Busca */}
       <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border rounded-lg shadow-subtle dark:shadow-dark-subtle overflow-hidden transition-colors duration-700 ease-in-out">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto lg:overflow-x-visible">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-vertex-border dark:border-vertex-dark-border bg-slate-50/70 dark:bg-vertex-dark-surface/60 text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider">
-                <th className="py-3.5 px-5">Empresa / Estabelecimento</th>
-                <th className="py-3.5 px-5">Região & Endereço</th>
-                <th className="py-3.5 px-5">Contato & CNPJ</th>
-                <th className="py-3.5 px-5">Presença Web</th>
-                <th className="py-3.5 px-5">Data da Busca</th>
-                <th className="py-3.5 px-5 text-right">ID Pesquisa</th>
-                <th className="py-3.5 px-5 text-right">Ação</th>
+                <th className="py-3 px-3.5 xl:px-4">Empresa / Estabelecimento</th>
+                <th className="py-3 px-3.5 xl:px-4">Região & Endereço</th>
+                <th className="py-3 px-3.5 xl:px-4 whitespace-nowrap">Contato & CNPJ</th>
+                <th className="py-3 px-3.5 xl:px-4 whitespace-nowrap">Presença Web</th>
+                <th className="py-3 px-3.5 xl:px-4 whitespace-nowrap">Data</th>
+                <th className="py-3 px-3.5 xl:px-4 text-right whitespace-nowrap">Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-vertex-border dark:divide-vertex-dark-border">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="py-12 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
+                  <td colSpan="6" className="py-12 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
                     Carregando resultados da busca...
                   </td>
                 </tr>
               ) : pesquisas.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="py-16 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
+                  <td colSpan="6" className="py-16 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
                     Nenhuma busca realizada ainda. Clique no botão <strong>"Realizar Busca"</strong> acima para carregar as empresas sem site da sua região.
                   </td>
                 </tr>
@@ -244,41 +243,46 @@ export const PesquisasView = () => {
                       className="hover:bg-slate-50/50 dark:hover:bg-vertex-dark-surface/30 transition-colors duration-150"
                     >
                       {/* Empresa & Atividade */}
-                      <td className="py-4 px-5 font-semibold text-vertex-dark dark:text-vertex-dark-text select-text">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-3.5 h-3.5 text-vertex-orange shrink-0" />
+                      <td className="py-3.5 px-3.5 xl:px-4 font-semibold text-vertex-dark dark:text-vertex-dark-text select-text">
+                        <div className="flex items-start gap-2">
+                          <Building2 className="w-3.5 h-3.5 text-vertex-orange shrink-0 mt-0.5" />
                           <div>
-                            <span className="block">{p.consulta}</span>
-                            <span className="text-[10px] font-medium text-vertex-orange bg-vertex-orange/10 px-1.5 py-0.5 rounded mt-0.5 inline-block">
-                              {detectarCategoria(p.categoria, p.consulta)}
-                            </span>
+                            <span className="block leading-snug">{p.consulta}</span>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="text-[10px] font-medium text-vertex-orange bg-vertex-orange/10 px-1.5 py-0.5 rounded">
+                                {detectarCategoria(p.categoria, p.consulta)}
+                              </span>
+                              <span className="text-[10px] font-mono text-vertex-muted dark:text-vertex-dark-muted px-1.5 py-0.5 rounded bg-slate-100 dark:bg-vertex-dark-surface" title={`ID da Consulta: ${p.idPesquisa}`}>
+                                #{p.idPesquisa}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </td>
 
                       {/* Endereço & Cidade/Estado */}
-                      <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text select-text">
+                      <td className="py-3.5 px-3.5 xl:px-4 text-vertex-body dark:text-vertex-dark-text select-text">
                         <div className="flex items-start gap-1.5">
                           <MapPin className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
-                          <div className="truncate max-w-xs">
-                            <span className="block font-medium">{p.endereco || 'Centro'}</span>
-                            <span className="block text-[11px] text-vertex-muted dark:text-vertex-dark-muted">
+                          <div className="max-w-[200px] xl:max-w-xs">
+                            <span className="block font-medium truncate">{p.endereco || 'Centro'}</span>
+                            <span className="block text-[11px] text-vertex-muted dark:text-vertex-dark-muted truncate">
                               {[p.cidade, p.estado].filter(Boolean).join(' - ') || p.regiao || 'Paraná'}
                             </span>
                           </div>
                         </div>
                       </td>
 
-                      {/* Contato & CNPJ (SearXNG + BrasilAPI) */}
-                      <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text select-text">
+                      {/* Contato & CNPJ (Sem quebra de linha no CNPJ e Telefone no PC) */}
+                      <td className="py-3.5 px-3.5 xl:px-4 text-vertex-body dark:text-vertex-dark-text select-text">
                         <div className="space-y-1">
                           {p.cnpj ? (
-                            <div className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800/40">
+                            <div className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800/40 whitespace-nowrap">
                               <FileText className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
-                              <span>{formatarCnpj(p.cnpj)}</span>
+                              <span className="whitespace-nowrap">{formatarCnpj(p.cnpj)}</span>
                             </div>
                           ) : (
-                            <span className="text-[11px] text-vertex-muted dark:text-vertex-dark-muted block">
+                            <span className="text-[11px] text-vertex-muted dark:text-vertex-dark-muted block whitespace-nowrap">
                               Não localizado
                             </span>
                           )}
@@ -286,13 +290,13 @@ export const PesquisasView = () => {
                           {(p.telefone && p.telefone !== 'Não informado') || (p.email && p.email !== 'Não informado' && !p.email.includes('empresa.com.br')) ? (
                             <div className="flex flex-col gap-0.5 text-[11px]">
                               {p.telefone && p.telefone !== 'Não informado' && (
-                                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
+                                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">
                                   <Phone className="w-3 h-3 shrink-0" />
-                                  <span>{p.telefone}</span>
+                                  <span className="whitespace-nowrap">{p.telefone}</span>
                                 </span>
                               )}
                               {p.email && p.email !== 'Não informado' && !p.email.includes('empresa.com.br') && (
-                                <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 truncate max-w-[180px]">
+                                <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 truncate max-w-[180px] xl:max-w-[220px]" title={p.email}>
                                   <Mail className="w-3 h-3 shrink-0" />
                                   <span className="truncate">{p.email}</span>
                                 </span>
@@ -303,20 +307,20 @@ export const PesquisasView = () => {
                       </td>
 
                       {/* Presença Web / Status */}
-                      <td className="py-4 px-5">
+                      <td className="py-3.5 px-3.5 xl:px-4">
                         {p.site ? (
                           <a
                             href={p.site.startsWith('http') ? p.site : `https://${p.site}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 hover:underline max-w-[150px] truncate"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 hover:underline max-w-[140px] truncate whitespace-nowrap"
                             title={p.site}
                           >
                             <Globe2 className="w-3 h-3 shrink-0" />
                             <span className="truncate">{p.site.replace(/^https?:\/\/(www\.)?/, '')}</span>
                           </a>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 select-none">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40 select-none whitespace-nowrap">
                             <Globe2 className="w-3 h-3" />
                             Sem Website
                           </span>
@@ -324,20 +328,15 @@ export const PesquisasView = () => {
                       </td>
 
                       {/* Data */}
-                      <td className="py-4 px-5 font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted select-text">
+                      <td className="py-3.5 px-3.5 xl:px-4 font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted select-text whitespace-nowrap">
                         {formatDate(p.criadoEm)}
                       </td>
 
-                      {/* ID */}
-                      <td className="py-4 px-5 text-right font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted select-text">
-                        {p.idPesquisa}
-                      </td>
-
                       {/* Ações ÚNICAS clicáveis: Salvar Empresa (ícone BookmarkPlus) & Excluir Busca (ícone Trash2) */}
-                      <td className="py-4 px-5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-3.5 px-3.5 xl:px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                           {jaSalva ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 select-none">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 select-none whitespace-nowrap">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               <span>Salva</span>
                             </span>
@@ -347,10 +346,10 @@ export const PesquisasView = () => {
                               onClick={() => handleSalvarEmpresa(p)}
                               disabled={isSalvando}
                               title="Salvar esta empresa na aba Empresas"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold bg-vertex-orange hover:bg-vertex-orange-hover active:scale-95 text-white shadow-sm hover:shadow-glow-orange transition-all duration-150 disabled:opacity-50 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold bg-vertex-orange hover:bg-vertex-orange-hover active:scale-95 text-white shadow-sm hover:shadow-glow-orange transition-all duration-150 disabled:opacity-50 cursor-pointer whitespace-nowrap"
                             >
                               <BookmarkPlus className="w-3.5 h-3.5" />
-                              <span>{isSalvando ? 'Salvando...' : 'Salvar Empresa'}</span>
+                              <span>{isSalvando ? 'Salvando...' : 'Salvar'}</span>
                             </button>
                           )}
 

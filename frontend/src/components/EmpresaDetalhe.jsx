@@ -14,7 +14,9 @@ import {
   Clock, 
   ArrowUpRight,
   Send,
-  MessageSquare
+  MessageSquare,
+  Copy,
+  Check
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
 
@@ -23,7 +25,49 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
   const [loadingNotas, setLoadingNotas] = useState(false);
   const [novaNota, setNovaNota] = useState('');
   const [salvandoNota, setSalvandoNota] = useState(false);
+  const [copiadoTelefone, setCopiadoTelefone] = useState(false);
   const toast = useToast();
+
+  const handleCopiarTelefone = (e) => {
+    if (e) e.stopPropagation();
+    if (!empresa?.telefone) return;
+    const texto = empresa.telefone;
+
+    const sucesso = () => {
+      setCopiadoTelefone(true);
+      toast.success(`Número ${texto} copiado para a área de transferência!`);
+      setTimeout(() => setCopiadoTelefone(false), 2500);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto).then(sucesso).catch(() => fallbackCopiar(texto, sucesso));
+    } else {
+      fallbackCopiar(texto, sucesso);
+    }
+  };
+
+  const fallbackCopiar = (texto, callback) => {
+    try {
+      const el = document.createElement('textarea');
+      el.value = texto;
+      el.setAttribute('readonly', '');
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      callback();
+    } catch {
+      toast.error('Não foi possível copiar automaticamente');
+    }
+  };
+
+  const gerarLinkGmail = (email) => {
+    if (!email || !email.includes('@') || email.includes('empresa.com.br')) return null;
+    const assunto = encodeURIComponent(`Contato Comercial - ${empresa?.nome || ''}`);
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email.trim())}&su=${assunto}`;
+  };
 
   useEffect(() => {
     if (empresa?.idEmpresa) {
@@ -216,14 +260,28 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
               <div>
                 <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Telefone:</span>
                 <div className="mt-1">
-                  {empresa.telefone ? (
-                    <a
-                      href={`tel:${empresa.telefone}`}
-                      className="inline-flex items-center gap-1.5 font-semibold text-vertex-dark dark:text-vertex-dark-text hover:text-vertex-orange transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span>{empresa.telefone}</span>
-                    </a>
+                  {empresa.telefone && empresa.telefone.toLowerCase() !== 'não informado' ? (
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleCopiarTelefone}
+                        title="Clique para copiar o número de telefone"
+                        className="inline-flex items-center gap-1.5 font-semibold text-vertex-dark dark:text-vertex-dark-text hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors group cursor-pointer"
+                      >
+                        <span className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all shrink-0">
+                          <Phone className="w-3 h-3" />
+                        </span>
+                        <span className="font-mono underline decoration-emerald-500/30 group-hover:decoration-emerald-500">{empresa.telefone}</span>
+                      </button>
+
+                      {/* Caixa de confirmação que o número foi copiado */}
+                      {copiadoTelefone && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700/60 px-2.5 py-0.5 rounded-md shadow-xs animate-in fade-in zoom-in-95 duration-150">
+                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          <span>Número copiado!</span>
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-vertex-muted dark:text-vertex-dark-muted">Não informado</span>
                   )}
@@ -237,13 +295,30 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
                    empresa.email.toLowerCase() !== 'não informado' && 
                    empresa.email.includes('@') && 
                    !empresa.email.includes('empresa.com.br') ? (
-                    <a
-                      href={`mailto:${empresa.email}`}
-                      className="inline-flex items-center gap-1.5 font-semibold text-vertex-dark dark:text-vertex-dark-text hover:text-vertex-orange transition-colors truncate max-w-full"
-                    >
-                      <Mail className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      <span className="truncate">{empresa.email}</span>
-                    </a>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <a
+                        href={gerarLinkGmail(empresa.email)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Abrir diretamente no Gmail para escrever um e-mail para a empresa"
+                        className="inline-flex items-center gap-1.5 font-semibold text-vertex-dark dark:text-vertex-dark-text hover:text-red-600 dark:hover:text-red-400 transition-colors truncate max-w-full group cursor-pointer"
+                      >
+                        <span className="w-5 h-5 rounded-full bg-red-50 dark:bg-red-950/60 flex items-center justify-center text-red-500 group-hover:bg-red-600 group-hover:text-white transition-all shrink-0">
+                          <Mail className="w-3 h-3" />
+                        </span>
+                        <span className="truncate underline decoration-red-500/30 group-hover:decoration-red-500">{empresa.email}</span>
+                      </a>
+                      <a
+                        href={gerarLinkGmail(empresa.email)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/50 hover:bg-red-100 dark:hover:bg-red-900/60 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-800/40 inline-flex items-center gap-1 transition-all shrink-0"
+                        title="Abrir diretamente no Gmail"
+                      >
+                        <span>Abrir Gmail</span>
+                        <ArrowUpRight className="w-2.5 h-2.5" />
+                      </a>
+                    </div>
                   ) : (
                     <span className="text-vertex-muted dark:text-vertex-dark-muted">Não informado</span>
                   )}

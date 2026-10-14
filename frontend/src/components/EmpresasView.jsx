@@ -12,7 +12,11 @@ import {
   Filter,
   ExternalLink,
   AlertCircle,
-  X
+  X,
+  Phone,
+  Mail,
+  ArrowUpRight,
+  Copy
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
 
@@ -23,6 +27,45 @@ export const EmpresasView = () => {
   const [page, setPage] = useState(0);
   const [pageSize] = useState(10);
   const [pageData, setPageData] = useState({ totalElements: 0, totalPages: 1 });
+
+  const toast = useToast();
+
+  const handleCopiarTelefone = (e, telefone) => {
+    e.stopPropagation();
+    if (!telefone) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(telefone).then(() => {
+        toast.success(`Telefone ${telefone} copiado com sucesso!`);
+      }).catch(() => {
+        copiarFallback(telefone);
+      });
+    } else {
+      copiarFallback(telefone);
+    }
+  };
+
+  const copiarFallback = (texto) => {
+    try {
+      const el = document.createElement('textarea');
+      el.value = texto;
+      el.setAttribute('readonly', '');
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      toast.success(`Telefone ${texto} copiado com sucesso!`);
+    } catch {
+      toast.error('Erro ao copiar telefone');
+    }
+  };
+
+  const gerarLinkGmail = (email, nomeEmpresa) => {
+    if (!email || !email.includes('@') || email.includes('empresa.com.br')) return null;
+    const assunto = encodeURIComponent(`Contato Comercial - ${nomeEmpresa || ''}`);
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email.trim())}&su=${assunto}`;
+  };
   const [termoBusca, setTermoBusca] = useState('');
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
@@ -70,8 +113,6 @@ export const EmpresasView = () => {
 
   // Detalhes da Empresa
   const [empresaSelecionada, setEmpresaSelecionada] = useState(null);
-
-  const toast = useToast();
 
   useEffect(() => {
     carregarEmpresas();
@@ -285,14 +326,37 @@ export const EmpresasView = () => {
                     </td>
 
                     {/* Telefone */}
-                    <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text font-mono text-[11px]">
-                      {emp.telefone || '-'}
+                    <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text font-mono text-[11px] whitespace-nowrap">
+                      {emp.telefone && emp.telefone.toLowerCase() !== 'não informado' ? (
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopiarTelefone(e, emp.telefone)}
+                          title="Clique para copiar o número de telefone"
+                          className="inline-flex items-center gap-1.5 text-vertex-dark dark:text-vertex-dark-text hover:text-emerald-600 dark:hover:text-emerald-400 font-semibold transition-colors group cursor-pointer"
+                        >
+                          <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+                          <span className="underline decoration-emerald-500/30 group-hover:decoration-emerald-500">{emp.telefone}</span>
+                        </button>
+                      ) : (
+                        <span className="text-vertex-muted dark:text-vertex-dark-muted">-</span>
+                      )}
                     </td>
 
                     {/* E-mail */}
                     <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text">
                       {emp.email && emp.email.toLowerCase() !== 'não informado' && emp.email.includes('@') && !emp.email.includes('empresa.com.br') ? (
-                        <span>{emp.email}</span>
+                        <a
+                          href={gerarLinkGmail(emp.email, emp.nome)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Clique para abrir diretamente no Gmail"
+                          className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:underline transition-colors truncate max-w-[200px] cursor-pointer"
+                        >
+                          <Mail className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{emp.email}</span>
+                          <ArrowUpRight className="w-2.5 h-2.5 shrink-0" />
+                        </a>
                       ) : (
                         <span className="text-vertex-muted dark:text-vertex-dark-muted">Não informado</span>
                       )}

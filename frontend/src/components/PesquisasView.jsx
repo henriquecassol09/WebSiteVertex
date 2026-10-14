@@ -90,6 +90,37 @@ export const PesquisasView = () => {
     return cnpj;
   };
 
+  const handleCopiarTelefone = (e, telefone) => {
+    if (e) e.stopPropagation();
+    if (!telefone) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(telefone).then(() => {
+        toast.success(`Telefone ${telefone} copiado com sucesso!`);
+      }).catch(() => {
+        copiarFallback(telefone);
+      });
+    } else {
+      copiarFallback(telefone);
+    }
+  };
+
+  const copiarFallback = (texto) => {
+    try {
+      const el = document.createElement('textarea');
+      el.value = texto;
+      el.setAttribute('readonly', '');
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      toast.success(`Telefone ${texto} copiado com sucesso!`);
+    } catch {
+      toast.error('Erro ao copiar telefone');
+    }
+  };
+
   /**
    * Salva uma empresa prospectada no banco (aparece na aba Empresas).
    * Uma empresa salva NÃO deve aparecer em nenhuma busca.
@@ -180,7 +211,7 @@ export const PesquisasView = () => {
             Busca
           </h1>
           <p className="text-xs text-vertex-muted dark:text-vertex-dark-muted mt-1 leading-relaxed">
-            Estabelecimentos comerciais sem website em <strong>Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras</strong>.
+            Realize buscas para encontrar estabelecimentos comerciais em <strong>Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras</strong>.
           </p>
         </div>
 
@@ -290,16 +321,27 @@ export const PesquisasView = () => {
                           {(p.telefone && p.telefone !== 'Não informado') || (p.email && p.email !== 'Não informado' && !p.email.includes('empresa.com.br')) ? (
                             <div className="flex flex-col gap-0.5 text-[11px]">
                               {p.telefone && p.telefone !== 'Não informado' && (
-                                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleCopiarTelefone(e, p.telefone)}
+                                  title="Clique para copiar o número de telefone"
+                                  className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap hover:text-vertex-orange dark:hover:text-vertex-orange hover:underline cursor-pointer text-left transition-colors"
+                                >
                                   <Phone className="w-3 h-3 shrink-0" />
                                   <span className="whitespace-nowrap">{p.telefone}</span>
-                                </span>
+                                </button>
                               )}
                               {p.email && p.email !== 'Não informado' && !p.email.includes('empresa.com.br') && (
-                                <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 truncate max-w-[180px] xl:max-w-[220px]" title={p.email}>
+                                <a
+                                  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(p.email.trim())}&su=${encodeURIComponent(`Contato Comercial - ${p.consulta || ''}`)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Clique para abrir diretamente no Gmail"
+                                  className="inline-flex items-center gap-1 text-red-600 dark:text-red-400 hover:text-red-500 hover:underline truncate max-w-[180px] xl:max-w-[220px] cursor-pointer transition-colors"
+                                >
                                   <Mail className="w-3 h-3 shrink-0" />
                                   <span className="truncate">{p.email}</span>
-                                </span>
+                                </a>
                               )}
                             </div>
                           ) : null}

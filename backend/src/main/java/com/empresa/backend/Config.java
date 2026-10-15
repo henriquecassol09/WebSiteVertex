@@ -33,6 +33,7 @@ import java.util.List;
 public class Config {
 
     private final DosDefenseFilter dosDefenseFilter;
+    private final CsrfDefenseFilter csrfDefenseFilter;
     private final SqlInjectionDefenseFilter sqlInjectionDefenseFilter;
     private final XssDefenseFilter xssDefenseFilter;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -49,7 +50,7 @@ public class Config {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // API stateless com JWT: CSRF nao se aplica (nenhum cookie de sessao e usado para autenticar)
+            // API stateless com JWT protegida contra CSRF por CsrfDefenseFilter dedicado (Defense in Depth)
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -78,15 +79,17 @@ public class Config {
                     "/api/auth/reenviar-codigo-cadastro",
                     "/api/auth/recuperar-senha",
                     "/api/auth/redefinir-senha",
-                    "/api/auth/validar-email"
+                    "/api/auth/validar-email",
+                    "/api/auth/csrf-token"
                 ).permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .anyRequest().authenticated()
             )
 
-            // Defesa Ativa contra DoS/DDoS no topo absoluto da cadeia (protege CPU/I/O de avaliacoes desnecessarias)
+            // Defesa Ativa em Camadas: DoS -> CSRF -> SQLi -> XSS -> JWT
             .addFilterBefore(dosDefenseFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(sqlInjectionDefenseFilter, DosDefenseFilter.class)
+            .addFilterAfter(csrfDefenseFilter, DosDefenseFilter.class)
+            .addFilterAfter(sqlInjectionDefenseFilter, CsrfDefenseFilter.class)
             .addFilterAfter(xssDefenseFilter, SqlInjectionDefenseFilter.class)
             .addFilterAfter(jwtAuthenticationFilter, XssDefenseFilter.class);
 
@@ -103,8 +106,8 @@ public class Config {
 
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
-        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin", "X-CSRF-Token", "X-CSRF-Protection"));
+        configuration.setExposedHeaders(List.of("Authorization", "X-CSRF-Token"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

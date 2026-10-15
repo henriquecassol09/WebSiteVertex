@@ -29,6 +29,11 @@ class AuthController {
         return ResponseEntity.ok(emailValidatorService.validarEmail(email));
     }
 
+    @GetMapping("/csrf-token")
+    ResponseEntity<CsrfTokenResponse> obterCsrfToken(HttpServletRequest http) {
+        return ResponseEntity.ok(authService.obterCsrfToken(http));
+    }
+
     @PostMapping("/registrar")
     ResponseEntity<RegistrarResponse> registrar(@Valid @RequestBody RegistrarRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.registrar(req));

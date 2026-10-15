@@ -73,6 +73,12 @@ record MensagemResponse(String mensagem) {
     }
 }
 
+record CsrfTokenResponse(String csrfToken) {
+    static CsrfTokenResponse of(String token) {
+        return new CsrfTokenResponse(token);
+    }
+}
+
 record AuthResponse(String accessToken, String refreshToken, long expiraEmSegundos, String tipo) {
     static AuthResponse of(String accessToken, String refreshToken, long expiraEmSegundos) {
         return new AuthResponse(accessToken, refreshToken, expiraEmSegundos, "Bearer");

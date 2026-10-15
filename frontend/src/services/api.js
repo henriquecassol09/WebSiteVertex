@@ -79,6 +79,8 @@ class ApiClient {
     const accessToken = tokenStorage.getAccessToken();
     const headers = {
       'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-Protection': '1',
       ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
       ...options.headers,
     };

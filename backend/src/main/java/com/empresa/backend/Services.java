@@ -36,6 +36,11 @@ class AuthService {
     @Value("${app.security.jwt.refresh-token-days}")
     private long refreshTokenDays;
 
+    CsrfTokenResponse obterCsrfToken(HttpServletRequest httpReq) {
+        String token = HashUtil.gerarTokenOpaco();
+        return CsrfTokenResponse.of(token);
+    }
+
     @Transactional
     RegistrarResponse registrar(RegistrarRequest req) {
         String emailNormalizado = req.email().trim().toLowerCase();

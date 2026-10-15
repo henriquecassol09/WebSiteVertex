@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -63,15 +64,24 @@ class AuthController {
         return ResponseEntity.ok(authService.refresh(req, http));
     }
 
+    @PostMapping("/alterar-senha")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<MensagemResponse> alterarSenha(@Valid @RequestBody AlterarSenhaRequest req,
+                                                  @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        return ResponseEntity.ok(authService.alterarSenha(AutenticacaoUtil.idUsuarioAtual(), req, authHeader));
+    }
+
     @PostMapping("/logout")
-    ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest req) {
-        authService.logout(req.refreshToken());
+    ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest req,
+                                @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        authService.logout(req.refreshToken(), authHeader);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/logout-todas-sessoes")
-    ResponseEntity<Void> logoutTodasSessoes() {
-        authService.logoutTodasSessoes(AutenticacaoUtil.idUsuarioAtual());
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<Void> logoutTodasSessoes(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        authService.logoutTodasSessoes(AutenticacaoUtil.idUsuarioAtual(), authHeader);
         return ResponseEntity.noContent().build();
     }
 }
@@ -79,6 +89,7 @@ class AuthController {
 @RestController
 @RequestMapping("/api/pesquisas")
 @Validated
+@PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 class PesquisaController {
 
@@ -116,6 +127,7 @@ class PesquisaController {
 @RestController
 @RequestMapping("/api/empresas")
 @Validated
+@PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 class EmpresaController {
 
@@ -158,6 +170,7 @@ class EmpresaController {
 @RestController
 @RequestMapping("/api/propostas")
 @Validated
+@PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 class PropostaController {
 
@@ -188,6 +201,7 @@ class PropostaController {
 @RestController
 @RequestMapping("/api/empresas/{idEmpresa}/notas")
 @Validated
+@PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 class NotaEmpresaController {
 
@@ -206,7 +220,7 @@ class NotaEmpresaController {
 
     @DeleteMapping("/{idNota}")
     ResponseEntity<Void> excluir(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String idEmpresa, @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String idNota) {
-        notaEmpresaService.excluir(AutenticacaoUtil.idUsuarioAtual(), idNota);
+        notaEmpresaService.excluir(AutenticacaoUtil.idUsuarioAtual(), idEmpresa, idNota);
         return ResponseEntity.noContent().build();
     }
 }

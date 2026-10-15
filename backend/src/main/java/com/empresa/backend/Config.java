@@ -78,9 +78,7 @@ public class Config {
                     "/api/auth/reenviar-codigo-cadastro",
                     "/api/auth/recuperar-senha",
                     "/api/auth/redefinir-senha",
-                    "/api/auth/codigo-dev",
-                    "/api/auth/validar-email",
-                    "/api/empresas/consultar-cnpj/**"
+                    "/api/auth/validar-email"
                 ).permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .anyRequest().authenticated()

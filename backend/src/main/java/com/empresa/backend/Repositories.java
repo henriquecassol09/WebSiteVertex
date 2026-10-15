@@ -19,6 +19,7 @@ interface UsuarioRepository extends JpaRepository<Usuario, String> {
 interface SessaoRepository extends JpaRepository<Sessao, String> {
 
     Optional<Sessao> findByTokenAndRevogadaFalse(String tokenHash);
+    Optional<Sessao> findByToken(String tokenHash);
 
     @Modifying
     @Query("UPDATE Sessao s SET s.revogada = true WHERE s.idSessao = :id")
@@ -78,4 +79,5 @@ interface VersaoPropostaRepository extends JpaRepository<VersaoProposta, String>
 interface NotaEmpresaRepository extends JpaRepository<NotaEmpresa, String> {
     List<NotaEmpresa> findByIdEmpresaAndIdUsuarioOrderByCriadoEmDesc(String idEmpresa, String idUsuario);
     Optional<NotaEmpresa> findByIdNotaEmpresaAndIdUsuario(String idNotaEmpresa, String idUsuario);
+    Optional<NotaEmpresa> findByIdNotaEmpresaAndIdEmpresaAndIdUsuario(String idNotaEmpresa, String idEmpresa, String idUsuario);
 }

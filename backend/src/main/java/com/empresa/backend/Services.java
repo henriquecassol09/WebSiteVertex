@@ -28,6 +28,7 @@ class AuthService {
     private final EmailValidatorService emailValidatorService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final AccessControlDefense accessControlDefense;
 
     @Value("${app.security.jwt.access-token-minutes}")
     private long accessTokenMinutes;
@@ -90,8 +91,11 @@ class AuthService {
         String senhaCriptografada = partes.length > 2 ? partes[2] : null;
 
         if (!codigoEsperado.trim().equals(req.codigo().trim())) {
+            accessControlDefense.registrarFalhaOtp(identificador, () -> verificacaoRepository.delete(verificacao));
             throw new BusinessException("Código de verificação incorreto");
         }
+
+        accessControlDefense.registrarSucessoOtp(identificador);
 
         // SOMENTE AGORA o usuário e a conta são oficialmente criados no banco de dados!
         Usuario usuario = Usuario.builder()
@@ -149,9 +153,14 @@ class AuthService {
     @Transactional
     AuthResponse login(LoginRequest req, HttpServletRequest httpReq) {
         String emailNormalizado = req.email().trim().toLowerCase();
+        String ip = httpReq != null ? clientIp(httpReq) : "127.0.0.1";
+
+        // Defesa contra Forca Bruta / Credential Stuffing: verifica se a conta ou o IP estao em lockout
+        accessControlDefense.verificarBloqueioLogin(emailNormalizado, ip);
 
         Optional<Usuario> usuarioOpt = usuarioRepository.findByEmailIgnoreCase(emailNormalizado);
         if (usuarioOpt.isEmpty()) {
+            accessControlDefense.registrarFalhaLogin(emailNormalizado, ip);
             if (verificacaoRepository.findTopByIdentificadorOrderByCriadoEmDesc("CADASTRO:" + emailNormalizado).isPresent()) {
                 throw new EmailNaoVerificadoException("Seu cadastro ainda não foi confirmado. Digite o código de 6 dígitos enviado para seu e-mail.");
             }
@@ -161,10 +170,13 @@ class AuthService {
         Usuario usuario = usuarioOpt.get();
 
         Conta conta = contaRepository.findByIdUsuarioAndIdProvedor(usuario.getIdUsuario(), PROVEDOR_CREDENCIAIS)
-                .orElseThrow(() -> new AutenticacaoException("Credenciais invalidas"));
+                .orElseThrow(() -> {
+                    accessControlDefense.registrarFalhaLogin(emailNormalizado, ip);
+                    return new AutenticacaoException("Credenciais invalidas");
+                });
 
         if (conta.getSenha() == null || !passwordEncoder.matches(req.senha(), conta.getSenha())) {
-            // Mesma mensagem para usuario inexistente ou senha errada — evita enumeracao
+            accessControlDefense.registrarFalhaLogin(emailNormalizado, ip);
             throw new AutenticacaoException("Credenciais invalidas");
         }
 
@@ -172,6 +184,8 @@ class AuthService {
             throw new EmailNaoVerificadoException("Seu e-mail ainda não foi verificado. Enviamos um código para " + emailNormalizado + ".");
         }
 
+        // Sucesso na autenticacao: reseta qualquer tentativa falha anterior
+        accessControlDefense.registrarSucessoLogin(emailNormalizado, ip);
         return emitirTokens(usuario, httpReq);
     }
 
@@ -193,12 +207,17 @@ class AuthService {
         String identificador = "RECUPERACAO:" + emailNormalizado;
 
         Verificacao verificacao = verificacaoRepository.findByIdentificadorAndValor(identificador, req.codigo())
-                .orElseThrow(() -> new BusinessException("Código de recuperação inválido"));
+                .orElseThrow(() -> {
+                    accessControlDefense.registrarFalhaOtp(identificador, () -> verificacaoRepository.deleteByIdentificador(identificador));
+                    return new BusinessException("Código de recuperação inválido");
+                });
 
         if (verificacao.getExpiraEm().isBefore(Instant.now())) {
             verificacaoRepository.delete(verificacao);
             throw new BusinessException("Código expirado. Solicite uma nova recuperação de senha.");
         }
+
+        accessControlDefense.registrarSucessoOtp(identificador);
 
         Usuario usuario = usuarioRepository.findByEmailIgnoreCase(emailNormalizado)
                 .orElseThrow(() -> new BusinessException("Não foi possível redefinir a senha"));
@@ -220,6 +239,28 @@ class AuthService {
         return new MensagemResponse("Senha alterada com sucesso! Você já pode entrar com sua nova senha.");
     }
 
+    @Transactional
+    MensagemResponse alterarSenha(String idUsuario, AlterarSenhaRequest req, String authHeader) {
+        Conta conta = contaRepository.findByIdUsuarioAndIdProvedor(idUsuario, PROVEDOR_CREDENCIAIS)
+                .orElseThrow(() -> new BusinessException("Conta de credenciais nao encontrada"));
+
+        if (!passwordEncoder.matches(req.senhaAtual(), conta.getSenha())) {
+            throw new BusinessException("Senha atual incorreta.");
+        }
+
+        if (passwordEncoder.matches(req.novaSenha(), conta.getSenha())) {
+            throw new BusinessException("A nova senha deve ser diferente da senha atual.");
+        }
+
+        conta.setSenha(passwordEncoder.encode(req.novaSenha()));
+        contaRepository.save(conta);
+
+        // Revoga todas as outras sessoes ativas no banco de dados para seguranca da conta
+        sessaoRepository.revogarTodasDoUsuario(idUsuario);
+
+        return MensagemResponse.of("Senha alterada com sucesso! Suas outras sessoes foram encerradas.");
+    }
+
     private void salvarCodigoVerificacao(String identificador, String codigo) {
         verificacaoRepository.deleteByIdentificador(identificador);
         Verificacao verificacao = Verificacao.builder()
@@ -234,9 +275,18 @@ class AuthService {
     AuthResponse refresh(RefreshRequest req, HttpServletRequest httpReq) {
         String hash = HashUtil.sha256(req.refreshToken());
 
-        Sessao sessao = sessaoRepository.findByTokenAndRevogadaFalse(hash)
-                .orElseThrow(() -> new AutenticacaoException("Sessao invalida ou expirada"));
+        Optional<Sessao> sessaoAtivaOpt = sessaoRepository.findByTokenAndRevogadaFalse(hash);
+        if (sessaoAtivaOpt.isEmpty()) {
+            // Defesa contra Session Hijacking / Replay: se o token já foi revogado e está sendo reusado,
+            // desconecta imediatamente todas as sessoes ativas deste usuario por violacao de integridade.
+            sessaoRepository.findByToken(hash).ifPresent(s -> {
+                sessaoRepository.revogarTodasDoUsuario(s.getIdUsuario());
+                throw new AutenticacaoException("Tentativa de reutilizacao de sessao revogada detectada. Todas as sessoes ativas foram desconectadas por seguranca.");
+            });
+            throw new AutenticacaoException("Sessao invalida ou expirada");
+        }
 
+        Sessao sessao = sessaoAtivaOpt.get();
         if (sessao.getExpiraEm().isBefore(Instant.now())) {
             sessaoRepository.revogarPorId(sessao.getIdSessao());
             throw new AutenticacaoException("Sessao invalida ou expirada");
@@ -253,14 +303,25 @@ class AuthService {
     }
 
     @Transactional
-    void logout(String refreshToken) {
-        String hash = HashUtil.sha256(refreshToken);
-        sessaoRepository.findByTokenAndRevogadaFalse(hash)
-                .ifPresent(s -> sessaoRepository.revogarPorId(s.getIdSessao()));
+    void logout(String refreshToken, String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            accessControlDefense.revogarTokenJwt(token, jwtService.extrairExpiracao(token));
+        }
+
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            String hash = HashUtil.sha256(refreshToken);
+            sessaoRepository.findByTokenAndRevogadaFalse(hash)
+                    .ifPresent(s -> sessaoRepository.revogarPorId(s.getIdSessao()));
+        }
     }
 
     @Transactional
-    void logoutTodasSessoes(String idUsuario) {
+    void logoutTodasSessoes(String idUsuario, String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            accessControlDefense.revogarTokenJwt(token, jwtService.extrairExpiracao(token));
+        }
         sessaoRepository.revogarTodasDoUsuario(idUsuario);
     }
 
@@ -500,9 +561,10 @@ class NotaEmpresaService {
     }
 
     @Transactional
-    void excluir(String idUsuario, String idNota) {
-        NotaEmpresa nota = notaEmpresaRepository.findByIdNotaEmpresaAndIdUsuario(idNota, idUsuario)
-                .orElseThrow(() -> new ResourceNotFoundException("Nota nao encontrada"));
+    void excluir(String idUsuario, String idEmpresa, String idNota) {
+        // Defesa contra IDOR / BOLA: valida simultaneamente idNota, idEmpresa e idUsuario
+        NotaEmpresa nota = notaEmpresaRepository.findByIdNotaEmpresaAndIdEmpresaAndIdUsuario(idNota, idEmpresa, idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Nota nao encontrada para a empresa informada"));
         notaEmpresaRepository.delete(nota);
     }
 }

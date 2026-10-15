@@ -62,6 +62,11 @@ record RedefinirSenhaRequest(
     @NotBlank(message = "Nova senha e obrigatoria") @SenhaForte String novaSenha
 ) {}
 
+record AlterarSenhaRequest(
+    @NotBlank(message = "Senha atual e obrigatoria") String senhaAtual,
+    @NotBlank(message = "Nova senha e obrigatoria") @SenhaForte String novaSenha
+) {}
+
 record MensagemResponse(String mensagem) {
     static MensagemResponse of(String mensagem) {
         return new MensagemResponse(mensagem);

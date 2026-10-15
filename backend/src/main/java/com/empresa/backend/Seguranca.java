@@ -106,6 +106,15 @@ class JwtService {
                 .compact();
     }
 
+    Instant extrairExpiracao(String token) {
+        try {
+            Date exp = parseClaims(token).getExpiration();
+            return exp != null ? exp.toInstant() : Instant.now();
+        } catch (Exception e) {
+            return Instant.now();
+        }
+    }
+
     String extrairIdUsuario(String token) {
         return parseClaims(token).getSubject();
     }
@@ -129,13 +138,14 @@ class JwtService {
     }
 }
 
-/** Le o header Authorization: Bearer, valida o JWT e popula o SecurityContext. */
+/** Le o header Authorization: Bearer, valida o JWT, checa blacklist e popula o SecurityContext. */
 @Component
 @RequiredArgsConstructor
 class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;
+    private final AccessControlDefense accessControlDefense;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -150,6 +160,13 @@ class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = header.substring(7);
+
+        // Se o token estiver na blacklist (ex: usuario fez logout ou trocou de senha), rejeita imediatamente
+        if (accessControlDefense.isTokenRevogado(token)) {
+            SecurityContextHolder.clearContext();
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         if (jwtService.tokenValido(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
             String idUsuario = jwtService.extrairIdUsuario(token);
@@ -174,7 +191,10 @@ final class AutenticacaoUtil {
     private AutenticacaoUtil() {}
 
     static String idUsuarioAtual() {
-        SecurityUser user = (SecurityUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof SecurityUser user)) {
+            throw new AutenticacaoException("Acesso negado: sessao nao autenticada.");
+        }
         return user.getIdUsuario();
     }
 }

@@ -22,9 +22,9 @@ export const ToastProvider = ({ children }) => {
   }, []);
 
   const toast = {
-    success: (msg) => addToast(msg, 'success'),
-    error: (msg) => addToast(msg, 'error'),
-    info: (msg) => addToast(msg, 'info'),
+    success: (msg, duration) => addToast(msg, 'success', duration),
+    error: (msg, duration) => addToast(msg, 'error', duration),
+    info: (msg, duration) => addToast(msg, 'info', duration),
   };
 
   return (

@@ -18,7 +18,8 @@ import {
   Filter,
   X,
   Check,
-  RotateCcw
+  RotateCcw,
+  Clock
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
 
@@ -28,8 +29,9 @@ export const PesquisasView = () => {
   const [salvandoId, setSalvandoId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [buscandoOverpass, setBuscandoOverpass] = useState(false);
+  const [segundosDecorridos, setSegundosDecorridos] = useState(0);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
+  const pageSize = 50;
   const [pageData, setPageData] = useState({ totalElements: 0, totalPages: 1 });
 
   // Estados dos Filtros
@@ -41,6 +43,15 @@ export const PesquisasView = () => {
   const [filtroEmail, setFiltroEmail] = useState('todos'); // 'todos' | 'com' | 'sem'
 
   const toast = useToast();
+
+  // Cronômetro de tempo decorrido durante a busca com estimativa
+  useEffect(() => {
+    if (!buscandoOverpass) return;
+    const interval = setInterval(() => {
+      setSegundosDecorridos((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [buscandoOverpass]);
 
   useEffect(() => {
     carregarPesquisas();
@@ -77,14 +88,16 @@ export const PesquisasView = () => {
   };
 
   /**
-   * Dispara a busca via Backend Java (Spring Boot)
+   * Dispara a busca via Backend Java (Spring Boot) com mensagem de estimativa
    */
   const handleRealizarBusca = async () => {
+    setSegundosDecorridos(0);
     setBuscandoOverpass(true);
+    toast.info('Busca iniciada. Estimativa de tempo: de 40 segundos a 1 minuto.', 10000);
 
     try {
       await api.pesquisas.prospectarRegiao();
-      toast.success('Busca concluída');
+      toast.success('Busca concluída com sucesso!');
       await carregarPesquisas();
     } catch (err) {
       toast.error(err.message || 'Erro ao realizar busca');
@@ -351,6 +364,39 @@ export const PesquisasView = () => {
           )}
         </button>
       </div>
+
+      {/* Banner de Progresso da Busca em Andamento */}
+      {buscandoOverpass && (
+        <div className="bg-orange-50/90 dark:bg-vertex-orange/10 border border-vertex-orange/30 dark:border-vertex-orange/40 rounded-lg p-4 sm:p-5 shadow-subtle dark:shadow-dark-subtle transition-all duration-300">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-md bg-vertex-orange/20 dark:bg-vertex-orange/30 flex items-center justify-center shrink-0">
+                <Loader2 className="w-5 h-5 text-vertex-orange animate-spin" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-vertex-dark dark:text-vertex-dark-text">
+                  Buscando novos estabelecimentos na região...
+                </h3>
+                <p className="text-xs text-vertex-muted dark:text-vertex-dark-muted mt-0.5 leading-relaxed">
+                  Consultando dados geográficos e cadastrais em 6 cidades (Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras).
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-vertex-orange self-end sm:self-center shrink-0 bg-vertex-orange/10 dark:bg-vertex-orange/20 px-2.5 py-1 rounded">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Tempo de busca: {segundosDecorridos}s</span>
+            </div>
+          </div>
+
+          {/* Barra de progresso */}
+          <div className="w-full bg-vertex-orange/20 dark:bg-vertex-orange/20 h-1.5 rounded-full overflow-hidden mt-3.5">
+            <div 
+              className="bg-vertex-orange h-full rounded-full transition-all duration-1000 ease-out"
+              style={{ width: `${Math.min(95, Math.max(5, (segundosDecorridos / 50) * 100))}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Barra de Filtros & Busca Rápida (Parecido com a aba de Empresas) */}
       <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border rounded-lg p-3 sm:p-3.5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between shadow-subtle dark:shadow-dark-subtle transition-colors duration-700 ease-in-out">

@@ -61,7 +61,6 @@ interface PesquisaRepository extends JpaRepository<Pesquisa, String> {
 interface EmpresaRepository extends JpaRepository<Empresa, String> {
     Page<Empresa> findByIdUsuario(String idUsuario, Pageable pageable);
     Optional<Empresa> findByIdEmpresaAndIdUsuario(String idEmpresa, String idUsuario);
-    Page<Empresa> findByIdUsuarioAndIdPesquisa(String idUsuario, String idPesquisa, Pageable pageable);
     boolean existsByIdUsuarioAndNomeIgnoreCase(String idUsuario, String nome);
     boolean existsByIdUsuarioAndIdPesquisa(String idUsuario, String idPesquisa);
 }

@@ -5,7 +5,6 @@ import { EmpresaDetalhe } from './EmpresaDetalhe';
 import { 
   Search, 
   Trash2, 
-  Eye, 
   Info,
   ChevronLeft, 
   ChevronRight,
@@ -16,7 +15,6 @@ import {
   Phone,
   Mail,
   ArrowUpRight,
-  Copy,
   Building2,
   MapPin,
   Globe2,
@@ -27,7 +25,6 @@ import { detectarCategoria } from '../utils/categoriaHelper';
 
 export const EmpresasView = () => {
   const [empresas, setEmpresas] = useState([]);
-  const [pesquisas, setPesquisas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [pageSize] = useState(10);
@@ -176,7 +173,6 @@ export const EmpresasView = () => {
 
   useEffect(() => {
     carregarEmpresas();
-    carregarPesquisas();
   }, [page]);
 
   const carregarEmpresas = async () => {
@@ -195,15 +191,6 @@ export const EmpresasView = () => {
     }
   };
 
-  const carregarPesquisas = async () => {
-    try {
-      const res = await api.pesquisas.listar(0, 50);
-      setPesquisas(res?.content || []);
-    } catch {
-      setPesquisas([]);
-    }
-  };
-
 
   const handleExcluir = async (idEmpresa) => {
     if (!confirm('Deseja realmente excluir esta empresa?')) return;
@@ -216,7 +203,7 @@ export const EmpresasView = () => {
         setEmpresaSelecionada(null);
       }
       toast.success('Empresa excluída com sucesso');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao excluir empresa');
     }
   };
@@ -294,19 +281,6 @@ export const EmpresasView = () => {
   const categoriasUnicas = Array.from(
     new Set(empresas.map((e) => detectarCategoria(e.categoria, e.nome)).filter(Boolean))
   );
-
-  const formatDate = (isoString) => {
-    if (!isoString) return '-';
-    try {
-      return new Date(isoString).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    } catch {
-      return isoString;
-    }
-  };
 
   return (
     <div className="space-y-6">

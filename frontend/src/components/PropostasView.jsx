@@ -5,17 +5,12 @@ import {
   FileText, 
   Plus, 
   Building2, 
-  Calendar, 
-  Clock, 
   Layers, 
   ChevronLeft, 
   ChevronRight, 
   X, 
   Save, 
-  Code, 
-  Eye,
-  CheckCircle2,
-  AlertCircle
+  Code
 } from 'lucide-react';
 
 export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa }) => {
@@ -94,7 +89,7 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
         totalElements: res?.totalElements || 0,
         totalPages: res?.totalPages || 1,
       });
-    } catch (err) {
+    } catch {
       toast.error('Erro ao carregar propostas');
     } finally {
       setLoading(false);

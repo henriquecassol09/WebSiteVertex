@@ -10,13 +10,11 @@ import {
   Mail, 
   Globe, 
   FileText, 
-  Plus, 
   Trash2, 
   Clock, 
   ArrowUpRight,
   Send,
   MessageSquare,
-  Copy,
   Check
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
@@ -103,7 +101,7 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
     try {
       const data = await api.notas.listar(empresa.idEmpresa);
       setNotas(data || []);
-    } catch (err) {
+    } catch {
       toast.error('Erro ao carregar notas da empresa');
     } finally {
       setLoadingNotas(false);
@@ -125,7 +123,7 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
       setNotas([notaCriada, ...notas]);
       setNovaNota('');
       toast.success('Nota registrada com sucesso');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao salvar nota');
     } finally {
       setSalvandoNota(false);
@@ -139,7 +137,7 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
       await api.notas.excluir(empresa.idEmpresa, idNota);
       setNotas(notas.filter((n) => n.idNotaEmpresa !== idNota));
       toast.success('Nota removida');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao remover nota');
     }
   };

@@ -261,7 +261,7 @@ class ApiClient {
     listar: async (page = 0, size = 20) => {
       try {
         return await this.request(`/empresas?page=${page}&size=${size}`);
-      } catch (err) {
+      } catch {
         // Quando não há backend respondendo, retorna vazio (ZERO DADOS INVENTADOS)
         return {
           content: [],
@@ -335,7 +335,7 @@ class ApiClient {
     listar: async (page = 0, size = 20) => {
       try {
         return await this.request(`/pesquisas?page=${page}&size=${size}`);
-      } catch (err) {
+      } catch {
         return {
           content: [],
           totalElements: 0,
@@ -378,7 +378,7 @@ class ApiClient {
     listar: async (page = 0, size = 20) => {
       try {
         return await this.request(`/propostas?page=${page}&size=${size}`);
-      } catch (err) {
+      } catch {
         return {
           content: [],
           totalElements: 0,

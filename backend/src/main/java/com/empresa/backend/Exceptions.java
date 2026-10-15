@@ -82,6 +82,19 @@ public class Exceptions {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<Object> handleConstraintViolation(jakarta.validation.ConstraintViolationException ex) {
+        log.warn("Violacao de restricao de parametro: {}", ex.getMessage());
+        return corpo(HttpStatus.BAD_REQUEST, "Parametro de requisicao invalido ou contendo formato nao permitido");
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<Object> handleDataAccess(org.springframework.dao.DataAccessException ex) {
+        // Loga internamente para auditoria de seguranca mas oculta detalhes internos de SQL da resposta
+        log.error("Erro de persistencia ou banco de dados detectado: {}", ex.getMessage());
+        return corpo(HttpStatus.BAD_REQUEST, "Operacao recusada pelo banco de dados por violacao de integridade ou parametro invalido.");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleGeneric(Exception ex) {
         log.error("Erro nao tratado", ex);

@@ -3,12 +3,14 @@ package com.empresa.backend;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -76,6 +78,7 @@ class AuthController {
 
 @RestController
 @RequestMapping("/api/pesquisas")
+@Validated
 @RequiredArgsConstructor
 class PesquisaController {
 
@@ -99,12 +102,12 @@ class PesquisaController {
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<PesquisaResponse> buscar(@PathVariable String id) {
+    ResponseEntity<PesquisaResponse> buscar(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String id) {
         return ResponseEntity.ok(pesquisaService.buscar(AutenticacaoUtil.idUsuarioAtual(), id));
     }
 
     @DeleteMapping("/{id}")
-    ResponseEntity<Void> excluir(@PathVariable String id) {
+    ResponseEntity<Void> excluir(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String id) {
         pesquisaService.excluir(AutenticacaoUtil.idUsuarioAtual(), id);
         return ResponseEntity.noContent().build();
     }
@@ -112,6 +115,7 @@ class PesquisaController {
 
 @RestController
 @RequestMapping("/api/empresas")
+@Validated
 @RequiredArgsConstructor
 class EmpresaController {
 
@@ -119,7 +123,7 @@ class EmpresaController {
     private final ProspeccaoService prospeccaoService;
 
     @GetMapping("/consultar-cnpj/{cnpj}")
-    ResponseEntity<DadosCnpjResponse> consultarCnpj(@PathVariable String cnpj) {
+    ResponseEntity<DadosCnpjResponse> consultarCnpj(@PathVariable @Pattern(regexp = "^[0-9.\\-/]{1,20}$", message = "Formato de CNPJ invalido") String cnpj) {
         return ResponseEntity.ok(prospeccaoService.consultarCnpjPublico(cnpj));
     }
 
@@ -135,17 +139,17 @@ class EmpresaController {
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<EmpresaResponse> buscar(@PathVariable String id) {
+    ResponseEntity<EmpresaResponse> buscar(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String id) {
         return ResponseEntity.ok(empresaService.buscar(AutenticacaoUtil.idUsuarioAtual(), id));
     }
 
     @PutMapping("/{id}")
-    ResponseEntity<EmpresaResponse> atualizar(@PathVariable String id, @Valid @RequestBody EmpresaRequest req) {
+    ResponseEntity<EmpresaResponse> atualizar(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String id, @Valid @RequestBody EmpresaRequest req) {
         return ResponseEntity.ok(empresaService.atualizar(AutenticacaoUtil.idUsuarioAtual(), id, req));
     }
 
     @DeleteMapping("/{id}")
-    ResponseEntity<Void> excluir(@PathVariable String id) {
+    ResponseEntity<Void> excluir(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String id) {
         empresaService.excluir(AutenticacaoUtil.idUsuarioAtual(), id);
         return ResponseEntity.noContent().build();
     }
@@ -153,6 +157,7 @@ class EmpresaController {
 
 @RestController
 @RequestMapping("/api/propostas")
+@Validated
 @RequiredArgsConstructor
 class PropostaController {
 
@@ -170,36 +175,37 @@ class PropostaController {
     }
 
     @GetMapping("/{id}")
-    ResponseEntity<PropostaResponse> buscar(@PathVariable String id) {
+    ResponseEntity<PropostaResponse> buscar(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String id) {
         return ResponseEntity.ok(propostaService.buscar(AutenticacaoUtil.idUsuarioAtual(), id));
     }
 
     @PostMapping("/{id}/versoes")
-    ResponseEntity<PropostaResponse> novaVersao(@PathVariable String id, @RequestBody @NotBlank String conteudoJson) {
+    ResponseEntity<PropostaResponse> novaVersao(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String id, @RequestBody @NotBlank String conteudoJson) {
         return ResponseEntity.ok(propostaService.novaVersao(AutenticacaoUtil.idUsuarioAtual(), id, conteudoJson));
     }
 }
 
 @RestController
 @RequestMapping("/api/empresas/{idEmpresa}/notas")
+@Validated
 @RequiredArgsConstructor
 class NotaEmpresaController {
 
     private final NotaEmpresaService notaEmpresaService;
 
     @PostMapping
-    ResponseEntity<NotaEmpresa> criar(@PathVariable String idEmpresa, @Valid @RequestBody NotaRequest req) {
+    ResponseEntity<NotaEmpresa> criar(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String idEmpresa, @Valid @RequestBody NotaRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(notaEmpresaService.criar(AutenticacaoUtil.idUsuarioAtual(), idEmpresa, req));
     }
 
     @GetMapping
-    ResponseEntity<List<NotaEmpresa>> listar(@PathVariable String idEmpresa) {
+    ResponseEntity<List<NotaEmpresa>> listar(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String idEmpresa) {
         return ResponseEntity.ok(notaEmpresaService.listar(AutenticacaoUtil.idUsuarioAtual(), idEmpresa));
     }
 
     @DeleteMapping("/{idNota}")
-    ResponseEntity<Void> excluir(@PathVariable String idEmpresa, @PathVariable String idNota) {
+    ResponseEntity<Void> excluir(@PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String idEmpresa, @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]{1,100}$", message = "Identificador invalido") String idNota) {
         notaEmpresaService.excluir(AutenticacaoUtil.idUsuarioAtual(), idNota);
         return ResponseEntity.noContent().build();
     }

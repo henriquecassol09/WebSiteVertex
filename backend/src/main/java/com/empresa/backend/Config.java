@@ -113,6 +113,7 @@ public class Config {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final SqlInjectionDefenseFilter sqlInjectionDefenseFilter;
 
     @Value("${app.security.cors.allowed-origins}")
     private String allowedOrigins;
@@ -163,7 +164,9 @@ public class Config {
                 .anyRequest().authenticated()
             )
 
-            .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+            // Defesa Ativa contra SQL Injection executa primeiro na cadeia de filtros
+            .addFilterBefore(sqlInjectionDefenseFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(rateLimitFilter, SqlInjectionDefenseFilter.class)
             .addFilterAfter(jwtAuthenticationFilter, RateLimitFilter.class);
 
         return http.build();

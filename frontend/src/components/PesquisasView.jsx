@@ -94,7 +94,7 @@ export const PesquisasView = () => {
   const handleRealizarBusca = async () => {
     setSegundosDecorridos(0);
     setBuscandoOverpass(true);
-    toast.info('Busca iniciada. Estimativa de tempo: de 40 segundos a 1 minuto.', 10000);
+    toast.info('Busca iniciada. Estimativa de tempo: de 1 a 3 minutos.', 10000);
 
     try {
       await api.pesquisas.prospectarRegiao();
@@ -231,10 +231,10 @@ export const PesquisasView = () => {
   const CIDADES_REGIAO = [
     'Laranjeiras do Sul',
     'Rio Bonito do Iguaçu',
-    'Porto Barreiro',
     'Virmond',
     'Cantagalo',
-    'Nova Laranjeiras'
+    'Nova Laranjeiras',
+    'Porto Barreiro'
   ];
 
   const cidadesDisponiveis = React.useMemo(() => {
@@ -245,7 +245,13 @@ export const PesquisasView = () => {
         setCidades.add(c);
       }
     });
-    return Array.from(setCidades);
+    return Array.from(setCidades).sort((a, b) => {
+      const aIsPb = a.toLowerCase().includes('porto barreiro');
+      const bIsPb = b.toLowerCase().includes('porto barreiro');
+      if (aIsPb && !bIsPb) return 1;
+      if (!aIsPb && bIsPb) return -1;
+      return 0;
+    });
   }, [pesquisas]);
 
   const toggleCidade = (cidade) => {
@@ -330,6 +336,12 @@ export const PesquisasView = () => {
     if (filtroEmail === 'sem' && temEmail) return false;
 
     return true;
+  }).sort((a, b) => {
+    const aIsPb = (a.cidade || a.regiao || '').toLowerCase().includes('porto barreiro');
+    const bIsPb = (b.cidade || b.regiao || '').toLowerCase().includes('porto barreiro');
+    if (aIsPb && !bIsPb) return 1;
+    if (!aIsPb && bIsPb) return -1;
+    return 0;
   });
 
   return (
@@ -393,7 +405,7 @@ export const PesquisasView = () => {
           <div className="w-full bg-vertex-orange/20 dark:bg-vertex-orange/20 h-1.5 rounded-full overflow-hidden mt-3.5">
             <div 
               className="bg-vertex-orange h-full rounded-full transition-all duration-1000 ease-out"
-              style={{ width: `${Math.min(95, Math.max(5, (segundosDecorridos / 50) * 100))}%` }}
+              style={{ width: `${Math.min(95, Math.max(5, (segundosDecorridos / 120) * 100))}%` }}
             />
           </div>
         </div>

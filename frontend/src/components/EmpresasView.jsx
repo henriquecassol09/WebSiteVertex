@@ -92,10 +92,10 @@ export const EmpresasView = () => {
   const CIDADES_REGIAO = [
     'Laranjeiras do Sul',
     'Rio Bonito do Iguaçu',
-    'Porto Barreiro',
     'Virmond',
     'Cantagalo',
-    'Nova Laranjeiras'
+    'Nova Laranjeiras',
+    'Porto Barreiro'
   ];
 
   const cidadesDisponiveis = React.useMemo(() => {
@@ -106,7 +106,13 @@ export const EmpresasView = () => {
         setCidades.add(c);
       }
     });
-    return Array.from(setCidades);
+    return Array.from(setCidades).sort((a, b) => {
+      const aIsPb = a.toLowerCase().includes('porto barreiro');
+      const bIsPb = b.toLowerCase().includes('porto barreiro');
+      if (aIsPb && !bIsPb) return 1;
+      if (!aIsPb && bIsPb) return -1;
+      return 0;
+    });
   }, [empresas]);
 
   const toggleCidade = (cidade) => {

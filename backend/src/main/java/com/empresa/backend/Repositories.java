@@ -55,7 +55,7 @@ interface PesquisaRepository extends JpaRepository<Pesquisa, String> {
     @Query("SELECT p FROM Pesquisa p WHERE p.idUsuario = :idUsuario " +
            "AND (p.idPesquisa NOT IN (SELECT COALESCE(e.idPesquisa, '') FROM Empresa e WHERE e.idUsuario = :idUsuario AND e.idPesquisa IS NOT NULL)) " +
            "AND (LOWER(p.consulta) NOT IN (SELECT LOWER(e.nome) FROM Empresa e WHERE e.idUsuario = :idUsuario)) " +
-           "ORDER BY p.criadoEm DESC")
+           "ORDER BY CASE WHEN LOWER(p.regiao) LIKE '%porto barreiro%' THEN 1 ELSE 0 END ASC, p.criadoEm DESC")
     Page<Pesquisa> findNaoSalvasByIdUsuario(@Param("idUsuario") String idUsuario, Pageable pageable);
 }
 

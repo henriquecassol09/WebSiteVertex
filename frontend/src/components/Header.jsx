@@ -8,7 +8,6 @@ import {
   Search, 
   User, 
   LogOut, 
-  CheckCircle2, 
   ChevronDown
 } from 'lucide-react';
 
@@ -106,15 +105,6 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
                   <div className="px-3.5 py-2.5 border-b border-vertex-border-light dark:border-vertex-dark-border bg-slate-50/50 dark:bg-vertex-dark-surface/50">
                     <p className="font-semibold text-vertex-dark dark:text-vertex-dark-text truncate">{user?.nome || 'Usuário'}</p>
                     <p className="text-vertex-muted dark:text-vertex-dark-muted text-[11px] truncate font-mono">{user?.email || 'email@vertex.com'}</p>
-                    {user?.emailVerificado ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
-                        <CheckCircle2 className="w-3 h-3" /> E-mail verificado
-                      </span>
-                    ) : (
-                      <span className="inline-block text-[10px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40 mt-1">
-                        E-mail pendente
-                      </span>
-                    )}
                   </div>
 
                   <div className="py-1">

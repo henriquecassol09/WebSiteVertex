@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { 
@@ -74,6 +75,15 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
       carregarNotas();
     }
   }, [empresa?.idEmpresa]);
+
+  // Bloquear scroll da página enquanto a janela de informações estiver aberta
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
 
   // Fechar modal ao pressionar a tecla ESC
   useEffect(() => {
@@ -170,9 +180,15 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-vertex-dark-card border-l border-vertex-border dark:border-vertex-dark-border shadow-modal dark:shadow-dark-modal w-full max-w-2xl h-full flex flex-col overflow-hidden animate-in slide-in-from-right duration-250 transition-colors">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-50 flex justify-end bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-fade-in-overlay"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white dark:bg-vertex-dark-card border-l border-vertex-border dark:border-vertex-dark-border shadow-modal dark:shadow-dark-modal w-full max-w-2xl h-screen max-h-screen flex flex-col overflow-hidden animate-slide-in-right transition-colors"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Top Header */}
         <div className="flex items-center justify-between px-6 py-4.5 border-b border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card shrink-0">
           <div className="flex items-center gap-3">
@@ -479,6 +495,7 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

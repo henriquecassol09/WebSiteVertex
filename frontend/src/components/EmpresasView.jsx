@@ -16,7 +16,12 @@ import {
   Phone,
   Mail,
   ArrowUpRight,
-  Copy
+  Copy,
+  Building2,
+  MapPin,
+  Globe2,
+  Check,
+  RotateCcw
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
 
@@ -66,9 +71,14 @@ export const EmpresasView = () => {
     const assunto = encodeURIComponent(`Contato Comercial - ${nomeEmpresa || ''}`);
     return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email.trim())}&su=${assunto}`;
   };
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [termoBusca, setTermoBusca] = useState('');
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [filtroCidades, setFiltroCidades] = useState([]); // Array de cidades selecionadas (multi-seleção)
+  const [filtroWebsite, setFiltroWebsite] = useState('todos'); // 'todos' | 'com' | 'sem'
+  const [filtroTelefone, setFiltroTelefone] = useState('todos'); // 'todos' | 'com' | 'sem'
+  const [filtroEmail, setFiltroEmail] = useState('todos'); // 'todos' | 'com' | 'sem'
   const [showToast, setShowToast] = useState(false);
 
   // Auto-dispensar o toast após 3.5 segundos
@@ -80,6 +90,58 @@ export const EmpresasView = () => {
       return () => clearTimeout(timer);
     }
   }, [showToast]);
+
+  const CIDADES_REGIAO = [
+    'Laranjeiras do Sul',
+    'Rio Bonito do Iguaçu',
+    'Porto Barreiro',
+    'Virmond',
+    'Cantagalo',
+    'Nova Laranjeiras'
+  ];
+
+  const cidadesDisponiveis = React.useMemo(() => {
+    const setCidades = new Set(CIDADES_REGIAO);
+    empresas.forEach((emp) => {
+      const c = (emp.cidade || '').trim();
+      if (c && c.toLowerCase() !== 'não informado' && c.toLowerCase() !== 'paraná') {
+        setCidades.add(c);
+      }
+    });
+    return Array.from(setCidades);
+  }, [empresas]);
+
+  const toggleCidade = (cidade) => {
+    setFiltroCidades((prev) =>
+      prev.includes(cidade) ? prev.filter((c) => c !== cidade) : [...prev, cidade]
+    );
+  };
+
+  const selecionarTodasCidades = () => {
+    if (filtroCidades.length === cidadesDisponiveis.length) {
+      setFiltroCidades([]);
+    } else {
+      setFiltroCidades([...cidadesDisponiveis]);
+    }
+  };
+
+  const limparFiltros = () => {
+    setFiltroCidades([]);
+    setFiltroCategoria('');
+    setFiltroWebsite('todos');
+    setFiltroTelefone('todos');
+    setFiltroEmail('todos');
+    setTermoBusca('');
+    setFiltroTexto('');
+  };
+
+  const filtrosAtivosCount = 
+    (filtroCidades.length > 0 ? 1 : 0) +
+    (filtroCategoria !== '' ? 1 : 0) +
+    (filtroWebsite !== 'todos' ? 1 : 0) +
+    (filtroTelefone !== 'todos' ? 1 : 0) +
+    (filtroEmail !== 'todos' ? 1 : 0) +
+    (filtroTexto.trim() !== '' ? 1 : 0);
 
   const handleBuscar = () => {
     const texto = termoBusca.trim();
@@ -93,7 +155,9 @@ export const EmpresasView = () => {
           emp.cidade?.toLowerCase().includes(texto.toLowerCase()) ||
           cat?.toLowerCase().includes(texto.toLowerCase()) ||
           emp.email?.toLowerCase().includes(texto.toLowerCase()) ||
-          emp.cnpj?.toLowerCase().includes(texto.toLowerCase());
+          emp.cnpj?.toLowerCase().includes(texto.toLowerCase()) ||
+          emp.telefone?.toLowerCase().includes(texto.toLowerCase()) ||
+          emp.endereco?.toLowerCase().includes(texto.toLowerCase());
 
         const matchCategoria =
           filtroCategoria === '' || cat === filtroCategoria;
@@ -101,11 +165,7 @@ export const EmpresasView = () => {
         return matchTexto && matchCategoria;
       });
 
-      if (!temResultados) {
-        setShowToast(true);
-      } else {
-        setShowToast(false);
-      }
+      setShowToast(!temResultados);
     } else {
       setShowToast(false);
     }
@@ -172,18 +232,63 @@ export const EmpresasView = () => {
 
   const empresasFiltradas = empresas.filter((emp) => {
     const cat = detectarCategoria(emp.categoria, emp.nome);
-    const matchTexto =
-      filtroTexto === '' ||
-      emp.nome?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      emp.cidade?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      cat?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      emp.email?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      emp.cnpj?.toLowerCase().includes(filtroTexto.toLowerCase());
 
-    const matchCategoria =
-      filtroCategoria === '' || cat === filtroCategoria;
+    // 1. Termo de busca textual
+    if (filtroTexto.trim() !== '') {
+      const termo = filtroTexto.toLowerCase().trim();
+      const matchTexto =
+        emp.nome?.toLowerCase().includes(termo) ||
+        emp.cidade?.toLowerCase().includes(termo) ||
+        cat?.toLowerCase().includes(termo) ||
+        emp.email?.toLowerCase().includes(termo) ||
+        emp.cnpj?.toLowerCase().includes(termo) ||
+        emp.telefone?.toLowerCase().includes(termo) ||
+        emp.endereco?.toLowerCase().includes(termo);
+      if (!matchTexto) return false;
+    }
 
-    return matchTexto && matchCategoria;
+    // 2. Categoria (mantendo o filtro atual)
+    if (filtroCategoria !== '' && cat !== filtroCategoria) {
+      return false;
+    }
+
+    // 3. Cidades (Multi-seleção)
+    if (filtroCidades.length > 0) {
+      const matchCidade = filtroCidades.some((c) => {
+        const cLow = c.toLowerCase().trim();
+        return (
+          emp.cidade?.toLowerCase().includes(cLow) ||
+          emp.endereco?.toLowerCase().includes(cLow)
+        );
+      });
+      if (!matchCidade) return false;
+    }
+
+    // 4. Website ('todos' | 'com' | 'sem')
+    const temSite = Boolean(emp.site && emp.site.trim() !== '');
+    if (filtroWebsite === 'com' && !temSite) return false;
+    if (filtroWebsite === 'sem' && temSite) return false;
+
+    // 5. Telefone ('todos' | 'com' | 'sem')
+    const temTelefone = Boolean(
+      emp.telefone && 
+      emp.telefone.toLowerCase() !== 'não informado' && 
+      emp.telefone.trim() !== ''
+    );
+    if (filtroTelefone === 'com' && !temTelefone) return false;
+    if (filtroTelefone === 'sem' && temTelefone) return false;
+
+    // 6. E-mail ('todos' | 'com' | 'sem')
+    const temEmail = Boolean(
+      emp.email && 
+      emp.email.toLowerCase() !== 'não informado' && 
+      emp.email.includes('@') && 
+      !emp.email.includes('empresa.com.br')
+    );
+    if (filtroEmail === 'com' && !temEmail) return false;
+    if (filtroEmail === 'sem' && temEmail) return false;
+
+    return true;
   });
 
   const categoriasUnicas = Array.from(
@@ -212,7 +317,7 @@ export const EmpresasView = () => {
             Empresas
           </h1>
           <p className="text-xs text-vertex-muted dark:text-vertex-dark-muted mt-1 leading-relaxed">
-            Registros de organizações e contatos retornados pela API.
+            Informações das empresas salvas
           </p>
         </div>
       </div>
@@ -237,38 +342,246 @@ export const EmpresasView = () => {
                   handleBuscar();
                 }
               }}
-              placeholder="Buscar por nome, CNPJ, cidade ou e-mail..."
-              className="w-full h-9 pl-9 pr-3.5 text-xs rounded-md border border-vertex-border dark:border-vertex-dark-border bg-slate-50/60 dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text placeholder:text-slate-400 dark:placeholder:text-slate-500/70 focus:bg-white dark:focus:bg-vertex-dark-surface focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-all duration-200"
+              placeholder="Buscar por nome, CNPJ, cidade, telefone, e-mail..."
+              className="w-full h-9 pl-9 pr-8 text-xs rounded-md border border-vertex-border dark:border-vertex-dark-border bg-slate-50/60 dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text placeholder:text-slate-400 dark:placeholder:text-slate-500/70 focus:bg-white dark:focus:bg-vertex-dark-surface focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-all duration-200"
             />
+            {termoBusca && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTermoBusca('');
+                  setFiltroTexto('');
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-vertex-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text p-0.5 rounded cursor-pointer"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <button
             type="button"
             onClick={handleBuscar}
-            className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-md text-xs font-semibold bg-vertex-orange hover:bg-vertex-orange-hover active:scale-[0.98] text-white transition-all duration-200 shadow-sm hover:shadow-glow-orange shrink-0"
+            className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-md text-xs font-semibold bg-vertex-orange hover:bg-vertex-orange-hover active:scale-[0.98] text-white transition-all duration-200 shadow-sm hover:shadow-glow-orange shrink-0 cursor-pointer"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Pesquisar</span>
           </button>
+
+          {/* Botão de Filtros Retráteis */}
+          <button
+            type="button"
+            onClick={() => setMostrarFiltros((prev) => !prev)}
+            className={`flex items-center gap-2 h-9 px-3.5 rounded-md text-xs font-semibold border transition-all duration-200 cursor-pointer shrink-0 ${
+              mostrarFiltros || filtrosAtivosCount > 0
+                ? 'bg-vertex-orange/10 dark:bg-vertex-orange/20 text-vertex-orange border-vertex-orange/40 dark:border-vertex-orange/50 shadow-xs'
+                : 'bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text border-vertex-border dark:border-vertex-dark-border hover:bg-slate-50 dark:hover:bg-vertex-dark-card'
+            }`}
+          >
+            <Filter className={`w-3.5 h-3.5 transition-transform ${mostrarFiltros ? 'rotate-180 text-vertex-orange' : ''}`} />
+            <span>Filtros</span>
+            {filtrosAtivosCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-vertex-orange text-white text-[10px] font-bold flex items-center justify-center">
+                {filtrosAtivosCount}
+              </span>
+            )}
+          </button>
         </div>
 
-        {categoriasUnicas.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-vertex-muted dark:text-vertex-dark-muted shrink-0" />
-            <select
-              value={filtroCategoria}
-              onChange={(e) => setFiltroCategoria(e.target.value)}
-              className="h-9 px-3 text-xs rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-all duration-200"
-            >
-              <option value="">Todas as categorias</option>
-              {categoriasUnicas.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+        {/* Categoria rápida na barra e resumo de exibição */}
+        <div className="flex items-center gap-3">
+          {categoriasUnicas.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Building2 className="w-3.5 h-3.5 text-vertex-muted dark:text-vertex-dark-muted shrink-0" />
+              <select
+                value={filtroCategoria}
+                onChange={(e) => setFiltroCategoria(e.target.value)}
+                className="h-9 px-3 text-xs rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-all duration-200 cursor-pointer"
+              >
+                <option value="">Todas as categorias</option>
+                {categoriasUnicas.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="text-xs text-vertex-muted dark:text-vertex-dark-muted hidden md:block shrink-0">
+            Exibindo <strong className="text-vertex-dark dark:text-vertex-dark-text">{empresasFiltradas.length}</strong> de <strong className="text-vertex-dark dark:text-vertex-dark-text">{empresas.length}</strong>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Painel de Filtros Retrátil */}
+      {mostrarFiltros && (
+        <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border rounded-lg p-4 sm:p-5 shadow-subtle dark:shadow-dark-subtle space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 transition-colors">
+          <div className="flex items-center justify-between border-b border-vertex-border/70 dark:border-vertex-dark-border/80 pb-3">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-vertex-orange" />
+              <h2 className="text-xs font-bold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
+                Filtros Personalizados
+              </h2>
+              {filtrosAtivosCount > 0 && (
+                <span className="text-[10px] bg-vertex-orange/10 dark:bg-vertex-orange/20 text-vertex-orange font-semibold px-2 py-0.5 rounded-full">
+                  {filtrosAtivosCount} ativo{filtrosAtivosCount > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {filtrosAtivosCount > 0 && (
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="text-[11px] font-medium text-vertex-muted dark:text-vertex-dark-muted hover:text-red-600 dark:hover:text-red-400 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Limpar todos os filtros</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMostrarFiltros(false)}
+                className="p-1 rounded-md text-vertex-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface transition-colors cursor-pointer"
+                title="Fechar filtros"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Opção 1: Cidades (Multi-seleção) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text inline-flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-vertex-orange" />
+                <span>Cidades ({filtroCidades.length === 0 ? 'Todas as cidades selecionadas' : `${filtroCidades.length} selecionada(s)`})</span>
+              </span>
+              <button
+                type="button"
+                onClick={selecionarTodasCidades}
+                className="text-[11px] font-medium text-vertex-orange hover:underline cursor-pointer"
+              >
+                {filtroCidades.length === cidadesDisponiveis.length ? 'Desmarcar todas' : 'Selecionar todas'}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              {cidadesDisponiveis.map((cidade) => {
+                const isSelected = filtroCidades.includes(cidade);
+                return (
+                  <button
+                    key={cidade}
+                    type="button"
+                    onClick={() => toggleCidade(cidade)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 cursor-pointer border ${
+                      isSelected
+                        ? 'bg-vertex-orange text-white border-vertex-orange shadow-xs font-semibold'
+                        : 'bg-slate-50 dark:bg-vertex-dark-surface text-vertex-body dark:text-vertex-dark-text border-vertex-border dark:border-vertex-dark-border hover:border-vertex-orange/50 dark:hover:border-vertex-orange/50'
+                    }`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded flex items-center justify-center border text-[9px] transition-colors ${
+                      isSelected ? 'border-white bg-white/20 text-white' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-vertex-dark-card'
+                    }`}>
+                      {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </span>
+                    <span>{cidade}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Opções 2, 3 e 4: Website, Telefone e E-mail */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2 border-t border-vertex-border/50 dark:border-vertex-dark-border/50">
+            {/* Website */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text inline-flex items-center gap-1.5">
+                <Globe2 className="w-3.5 h-3.5 text-blue-500" />
+                <span>Website</span>
+              </label>
+              <div className="grid grid-cols-3 gap-1 bg-slate-50/80 dark:bg-vertex-dark-surface p-1 rounded-md border border-vertex-border dark:border-vertex-dark-border">
+                {[
+                  { id: 'todos', label: 'Todos' },
+                  { id: 'com', label: 'Com site' },
+                  { id: 'sem', label: 'Sem site' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setFiltroWebsite(opt.id)}
+                    className={`py-1 text-[11px] font-medium rounded transition-all cursor-pointer ${
+                      filtroWebsite === opt.id
+                        ? 'bg-vertex-orange text-white font-semibold shadow-xs'
+                        : 'text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Telefone */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text inline-flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Telefone</span>
+              </label>
+              <div className="grid grid-cols-3 gap-1 bg-slate-50/80 dark:bg-vertex-dark-surface p-1 rounded-md border border-vertex-border dark:border-vertex-dark-border">
+                {[
+                  { id: 'todos', label: 'Todos' },
+                  { id: 'com', label: 'Com tel' },
+                  { id: 'sem', label: 'Sem tel' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setFiltroTelefone(opt.id)}
+                    className={`py-1 text-[11px] font-medium rounded transition-all cursor-pointer ${
+                      filtroTelefone === opt.id
+                        ? 'bg-vertex-orange text-white font-semibold shadow-xs'
+                        : 'text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* E-mail */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text inline-flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-red-500" />
+                <span>E-mail</span>
+              </label>
+              <div className="grid grid-cols-3 gap-1 bg-slate-50/80 dark:bg-vertex-dark-surface p-1 rounded-md border border-vertex-border dark:border-vertex-dark-border">
+                {[
+                  { id: 'todos', label: 'Todos' },
+                  { id: 'com', label: 'Com email' },
+                  { id: 'sem', label: 'Sem email' },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setFiltroEmail(opt.id)}
+                    className={`py-1 text-[11px] font-medium rounded transition-all cursor-pointer ${
+                      filtroEmail === opt.id
+                        ? 'bg-vertex-orange text-white font-semibold shadow-xs'
+                        : 'text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabela de Empresas - Estritamente fiel às propriedades de EmpresaResponse */}
       <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border rounded-lg shadow-subtle dark:shadow-dark-subtle overflow-hidden transition-colors duration-700 ease-in-out">

@@ -264,7 +264,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
 
               <div>
                 <label className="block text-xs font-medium text-vertex-dark dark:text-vertex-dark-text mb-1">
-                  E-mail Institucional <span className="text-vertex-orange">*</span>
+                  Email <span className="text-vertex-orange">*</span>
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-vertex-muted dark:text-vertex-dark-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -272,7 +272,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu.email@empresa.com"
+                    placeholder="seu.email@gmail.com"
                     maxLength={255}
                     className={`w-full pl-9 pr-3 py-2 text-xs rounded border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
                       errors.email ? 'border-red-400 bg-red-50/20' : 'border-vertex-border dark:border-vertex-dark-border'

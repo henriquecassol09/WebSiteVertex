@@ -290,7 +290,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                 htmlFor="vertex-email"
                 className="block text-xs font-semibold text-gray-800 dark:text-vertex-dark-text mb-1"
               >
-                E-mail Corporativo
+                E-mail
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400 dark:text-vertex-dark-muted">

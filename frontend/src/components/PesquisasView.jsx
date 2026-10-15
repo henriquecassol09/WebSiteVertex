@@ -22,6 +22,7 @@ import {
   Clock
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
+import { sanitizarUrl } from '../utils/security';
 
 export const PesquisasView = () => {
   const [pesquisas, setPesquisas] = useState([]);
@@ -746,7 +747,7 @@ export const PesquisasView = () => {
                       <td className="py-3.5 px-3.5 xl:px-4">
                         {p.site ? (
                           <a
-                            href={p.site.startsWith('http') ? p.site : `https://${p.site}`}
+                            href={sanitizarUrl(p.site)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 hover:underline max-w-[140px] truncate whitespace-nowrap"

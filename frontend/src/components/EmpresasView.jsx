@@ -22,6 +22,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
+import { sanitizarUrl } from '../utils/security';
 
 export const EmpresasView = () => {
   const [empresas, setEmpresas] = useState([]);
@@ -653,7 +654,7 @@ export const EmpresasView = () => {
                     <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text">
                       {emp.site ? (
                         <a
-                          href={emp.site.startsWith('http') ? emp.site : `https://${emp.site}`}
+                          href={sanitizarUrl(emp.site)}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}

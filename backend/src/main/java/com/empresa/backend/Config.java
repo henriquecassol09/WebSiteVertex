@@ -115,6 +115,7 @@ public class Config {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RateLimitFilter rateLimitFilter;
     private final SqlInjectionDefenseFilter sqlInjectionDefenseFilter;
+    private final XssDefenseFilter xssDefenseFilter;
 
     @Value("${app.security.cors.allowed-origins}")
     private String allowedOrigins;
@@ -142,7 +143,7 @@ public class Config {
                     .maxAgeInSeconds(31536000))
                 .referrerPolicy(rp -> rp.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                 .contentSecurityPolicy(csp -> csp.policyDirectives(
-                    "default-src 'self'; frame-ancestors 'none'; object-src 'none'"))
+                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"))
                 .permissionsPolicy(p -> p.policy(
                     "geolocation=(), microphone=(), camera=(), payment=()"))
             )
@@ -165,9 +166,10 @@ public class Config {
                 .anyRequest().authenticated()
             )
 
-            // Defesa Ativa contra SQL Injection executa primeiro na cadeia de filtros
+            // Defesa Ativa contra SQL Injection e Cross-Site Scripting (XSS) executam no topo da cadeia
             .addFilterBefore(sqlInjectionDefenseFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(rateLimitFilter, SqlInjectionDefenseFilter.class)
+            .addFilterAfter(xssDefenseFilter, SqlInjectionDefenseFilter.class)
+            .addFilterAfter(rateLimitFilter, XssDefenseFilter.class)
             .addFilterAfter(jwtAuthenticationFilter, RateLimitFilter.class);
 
         return http.build();

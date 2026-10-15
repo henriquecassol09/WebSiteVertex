@@ -18,6 +18,7 @@ import {
   Check
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
+import { sanitizarUrl } from '../utils/security';
 
 export const EmpresaDetalhe = ({ empresa, onClose }) => {
   const [notas, setNotas] = useState([]);
@@ -358,7 +359,7 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
                 <div className="mt-1">
                   {empresa.site ? (
                     <a
-                      href={empresa.site.startsWith('http') ? empresa.site : `https://${empresa.site}`}
+                      href={sanitizarUrl(empresa.site)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 font-semibold text-vertex-orange hover:underline transition-colors"

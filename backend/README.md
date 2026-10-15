@@ -1,1 +1,0 @@
-O uso deste codigo é extriamente proibido sem autorização formal do dono do repositorio.

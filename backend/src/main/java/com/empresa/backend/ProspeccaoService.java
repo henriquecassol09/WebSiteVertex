@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -93,70 +94,83 @@ public class ProspeccaoService {
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
+    // Defesa contra DoS: impede que o mesmo usuario execute multiplas buscas pesadas concorrentes
+    private static final ConcurrentHashMap<String, Boolean> PROSPECCOES_ATIVAS = new ConcurrentHashMap<>();
+
     @Transactional
     public List<PesquisaResponse> prospectarEmpresasSemSite(String idUsuario) {
-        String bbox = "-25.68,-52.60,-25.25,-51.95";
+        if (idUsuario != null && PROSPECCOES_ATIVAS.putIfAbsent(idUsuario, Boolean.TRUE) != null) {
+            throw new BusinessException("Ja existe uma prospeccao em andamento para a sua conta. Aguarde alguns instantes antes de iniciar outra.");
+        }
 
-        // Consulta Overpass buscando nós e vias comerciais
-        String query = """
-                [out:json][timeout:20];
-                (
-                  node["shop"]["name"](%s);
-                  node["amenity"]["name"](%s);
-                  node["craft"]["name"](%s);
-                  node["office"]["name"](%s);
-                  node["healthcare"]["name"](%s);
-                  way["shop"]["name"](%s);
-                  way["amenity"]["name"](%s);
-                );
-                out body 60;
-                """.formatted(bbox, bbox, bbox, bbox, bbox, bbox, bbox);
+        try {
+            String bbox = "-25.68,-52.60,-25.25,-51.95";
 
-        boolean obteveDados = false;
+            // Consulta Overpass buscando nós e vias comerciais
+            String query = """
+                    [out:json][timeout:20];
+                    (
+                      node["shop"]["name"](%s);
+                      node["amenity"]["name"](%s);
+                      node["craft"]["name"](%s);
+                      node["office"]["name"](%s);
+                      node["healthcare"]["name"](%s);
+                      way["shop"]["name"](%s);
+                      way["amenity"]["name"](%s);
+                    );
+                    out body 60;
+                    """.formatted(bbox, bbox, bbox, bbox, bbox, bbox, bbox);
 
-        for (String server : OVERPASS_SERVERS) {
-            try {
-                log.info("Consultando Overpass API em: {}", server);
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(server))
-                        .timeout(Duration.ofSeconds(20))
-                        .header("Content-Type", "application/x-www-form-urlencoded")
-                        .header("User-Agent", "VertexProspectorApp/1.0 (contact: admin@vertex.com)")
-                        .header("Accept", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString("data=" + URLEncoder.encode(query, StandardCharsets.UTF_8)))
-                        .build();
+            boolean obteveDados = false;
 
-                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            for (String server : OVERPASS_SERVERS) {
+                try {
+                    log.info("Consultando Overpass API em: {}", server);
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create(server))
+                            .timeout(Duration.ofSeconds(20))
+                            .header("Content-Type", "application/x-www-form-urlencoded")
+                            .header("User-Agent", "VertexProspectorApp/1.0 (contact: admin@vertex.com)")
+                            .header("Accept", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString("data=" + URLEncoder.encode(query, StandardCharsets.UTF_8)))
+                            .build();
 
-                if (response.statusCode() == 200) {
-                    String body = response.body();
-                    if (body != null && body.trim().startsWith("{")) {
-                        JsonNode root = objectMapper.readTree(body);
-                        JsonNode elements = root.path("elements");
+                    HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-                        if (elements.isArray() && elements.size() > 0) {
-                            processarElementos(elements, idUsuario);
-                            obteveDados = true;
-                            break;
+                    if (response.statusCode() == 200) {
+                        String body = response.body();
+                        if (body != null && body.trim().startsWith("{")) {
+                            JsonNode root = objectMapper.readTree(body);
+                            JsonNode elements = root.path("elements");
+
+                            if (elements.isArray() && elements.size() > 0) {
+                                processarElementos(elements, idUsuario);
+                                obteveDados = true;
+                                break;
+                            }
                         }
+                    } else {
+                        log.warn("Overpass API retornou HTTP {} em {}", response.statusCode(), server);
                     }
-                } else {
-                    log.warn("Overpass API retornou HTTP {} em {}", response.statusCode(), server);
+                } catch (Exception e) {
+                    log.warn("Tentativa de consulta à Overpass API em {} falhou: {}", server, e.getMessage());
                 }
-            } catch (Exception e) {
-                log.warn("Tentativa de consulta à Overpass API em {} falhou: {}", server, e.getMessage());
+            }
+
+            if (!obteveDados) {
+                log.warn("Nenhum servidor Overpass respondeu ou a busca não retornou novos dados.");
+            }
+
+            return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 50))
+                    .getContent()
+                    .stream()
+                    .map(PesquisaResponse::from)
+                    .toList();
+        } finally {
+            if (idUsuario != null) {
+                PROSPECCOES_ATIVAS.remove(idUsuario);
             }
         }
-
-        if (!obteveDados) {
-            log.warn("Nenhum servidor Overpass respondeu ou a busca não retornou novos dados.");
-        }
-
-        return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 50))
-                .getContent()
-                .stream()
-                .map(PesquisaResponse::from)
-                .toList();
     }
 
     private void processarElementos(JsonNode elements, String idUsuario) {

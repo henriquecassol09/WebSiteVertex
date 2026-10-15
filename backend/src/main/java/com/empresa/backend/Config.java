@@ -1,16 +1,9 @@
 package com.empresa.backend;
 
-import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.lang.NonNull;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -27,83 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-
-/**
- * Rate limiting simples por IP (in-memory). Para multiplas instancias em
- * producao, substituir por backend distribuido (Redis + bucket4j-redis).
- * Endpoints de autenticacao recebem um limite mais restrito para dificultar
- * forca bruta / credential stuffing.
- */
-@Component
-class RateLimitFilter extends OncePerRequestFilter {
-
-    @Value("${app.security.rate-limit.auth-capacity}")
-    private int authCapacity;
-
-    @Value("${app.security.rate-limit.auth-refill-minutes}")
-    private int authRefillMinutes;
-
-    @Value("${app.security.rate-limit.api-capacity}")
-    private int apiCapacity;
-
-    @Value("${app.security.rate-limit.api-refill-minutes}")
-    private int apiRefillMinutes;
-
-    private final ConcurrentHashMap<String, Bucket> authBuckets = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Bucket> apiBuckets = new ConcurrentHashMap<>();
-
-    @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request,
-                                     @NonNull HttpServletResponse response,
-                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
-
-        String path = request.getRequestURI();
-        // Health check e actuator nao devem ser bloqueados por rate limit
-        if (path.startsWith("/api/health") || path.startsWith("/actuator/")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        String ip = clientIp(request);
-        boolean isAuthEndpoint = path.startsWith("/api/auth/");
-
-        Bucket bucket = isAuthEndpoint
-                ? authBuckets.computeIfAbsent(ip, k -> novoBucket(authCapacity, authRefillMinutes))
-                : apiBuckets.computeIfAbsent(ip, k -> novoBucket(apiCapacity, apiRefillMinutes));
-
-        if (bucket.tryConsume(1)) {
-            filterChain.doFilter(request, response);
-        } else {
-            response.setStatus(429);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"erro\":\"Muitas requisicoes. Tente novamente mais tarde.\"}");
-        }
-    }
-
-    private Bucket novoBucket(int capacity, int refillMinutes) {
-        Bandwidth limit = Bandwidth.builder()
-                .capacity(capacity)
-                .refillIntervally(capacity, Duration.ofMinutes(refillMinutes))
-                .build();
-        return Bucket.builder().addLimit(limit).build();
-    }
-
-    private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
-}
 
 @Configuration
 @EnableAsync
@@ -112,10 +32,10 @@ class RateLimitFilter extends OncePerRequestFilter {
 @RequiredArgsConstructor
 public class Config {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final RateLimitFilter rateLimitFilter;
+    private final DosDefenseFilter dosDefenseFilter;
     private final SqlInjectionDefenseFilter sqlInjectionDefenseFilter;
     private final XssDefenseFilter xssDefenseFilter;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Value("${app.security.cors.allowed-origins}")
     private String allowedOrigins;
@@ -166,11 +86,11 @@ public class Config {
                 .anyRequest().authenticated()
             )
 
-            // Defesa Ativa contra SQL Injection e Cross-Site Scripting (XSS) executam no topo da cadeia
-            .addFilterBefore(sqlInjectionDefenseFilter, UsernamePasswordAuthenticationFilter.class)
+            // Defesa Ativa contra DoS/DDoS no topo absoluto da cadeia (protege CPU/I/O de avaliacoes desnecessarias)
+            .addFilterBefore(dosDefenseFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(sqlInjectionDefenseFilter, DosDefenseFilter.class)
             .addFilterAfter(xssDefenseFilter, SqlInjectionDefenseFilter.class)
-            .addFilterAfter(rateLimitFilter, XssDefenseFilter.class)
-            .addFilterAfter(jwtAuthenticationFilter, RateLimitFilter.class);
+            .addFilterAfter(jwtAuthenticationFilter, XssDefenseFilter.class);
 
         return http.build();
     }

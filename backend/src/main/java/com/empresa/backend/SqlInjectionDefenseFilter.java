@@ -134,8 +134,12 @@ public class SqlInjectionDefenseFilter extends OncePerRequestFilter {
         }
 
         String texto = value.trim();
+        // Mitigacao contra ReDoS (Regular Expression DoS): limita comprimento analisado
+        if (texto.length() > 4096) {
+            texto = texto.substring(0, 4096);
+        }
 
-        // Testa também a versão decodificada se houver encoding
+        // Testa tambem a versao decodificada se houver encoding
         for (Pattern pattern : SQL_INJECTION_PATTERNS) {
             if (pattern.matcher(texto).find()) {
                 return true;

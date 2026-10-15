@@ -137,7 +137,9 @@ public class XssDefenseFilter extends OncePerRequestFilter {
             return false;
         }
 
-        String normalizado = normalizarEntrada(value);
+        // Mitigacao contra ReDoS (Regular Expression DoS): limita comprimento analisado
+        String valorInspecao = value.length() > 8192 ? value.substring(0, 8192) : value;
+        String normalizado = normalizarEntrada(valorInspecao);
 
         for (Pattern pattern : XSS_PATTERNS) {
             if (pattern.matcher(normalizado).find()) {

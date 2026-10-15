@@ -161,7 +161,15 @@ public class ProspeccaoService {
                 log.warn("Nenhum servidor Overpass respondeu ou a busca não retornou novos dados.");
             }
 
-            return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 50))
+            // Prospecção cadastral oficial complementar para Porto Barreiro (cidade da comarca com baixa densidade no OSM)
+            try {
+                int puxadasPortoBarreiro = prospectarCidadeEspecificaTavily(idUsuario, "Porto Barreiro", "PR");
+                log.info("Prospecção direcionada de Porto Barreiro concluída: {} novos estabelecimentos incorporados.", puxadasPortoBarreiro);
+            } catch (Exception e) {
+                log.warn("Falha na prospecção complementar de Porto Barreiro: {}", e.getMessage());
+            }
+
+            return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 100))
                     .getContent()
                     .stream()
                     .map(PesquisaResponse::from)
@@ -983,10 +991,197 @@ public class ProspeccaoService {
                 .replace("24/7", "Aberto 24 horas");
     }
 
+    /**
+     * Prospecção cadastral oficial dinâmica para cidades com baixa cobertura OSM (como Porto Barreiro - PR),
+     * utilizando a Tavily Search API para busca de CNPJs em portais oficiais da Receita Federal e enriquecimento
+     * automático com dados cadastrais reais (telefones, e-mails, endereços e atividades comerciais).
+     */
+    public int prospectarCidadeEspecificaTavily(String idUsuario, String cidade, String estado) {
+        if (tavilyApiKey == null || tavilyApiKey.isBlank()) {
+            log.warn("Tavily API Key ausente; prospecção para {} não pôde ser executada.", cidade);
+            return 0;
+        }
+
+        int novasEmpresas = 0;
+        try {
+            List<String> queries = List.of(
+                    String.format("site:cnpj.biz OR site:casadosdados.com.br \"%s\" %s comercio", cidade, estado),
+                    String.format("\"%s\" %s empresas CNPJ", cidade, estado)
+            );
+
+            Set<String> cnpjsEncontrados = new java.util.LinkedHashSet<>();
+            Map<String, String> nomesPorCnpj = new LinkedHashMap<>();
+
+            for (String q : queries) {
+                try {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("api_key", tavilyApiKey);
+                    payload.put("query", q);
+                    payload.put("search_depth", "basic");
+                    payload.put("max_results", 10);
+                    payload.put("include_domains", List.of(
+                            "casadosdados.com.br",
+                            "cnpj.biz",
+                            "econodata.com.br",
+                            "consultas.plus",
+                            "infocnpj.com.br",
+                            "situacaocadastral.info"
+                    ));
+
+                    String jsonPayload = objectMapper.writeValueAsString(payload);
+                    HttpRequest req = HttpRequest.newBuilder()
+                            .uri(URI.create(TAVILY_API_URL))
+                            .timeout(Duration.ofSeconds(6))
+                            .header("Content-Type", "application/json")
+                            .header("Accept", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                            .build();
+
+                    HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                    if (resp.statusCode() == 200 && resp.body() != null) {
+                        JsonNode root = objectMapper.readTree(resp.body());
+                        JsonNode results = root.path("results");
+                        if (results.isArray()) {
+                            for (JsonNode res : results) {
+                                String title = res.path("title").asText("");
+                                String content = res.path("content").asText("");
+                                String url = res.path("url").asText("");
+                                String textoCompleto = title + " " + content + " " + url;
+
+                                Matcher matcher = CNPJ_PATTERN.matcher(textoCompleto);
+                                while (matcher.find()) {
+                                    String cand = matcher.group().replaceAll("\\D", "");
+                                    if (cand.length() == 14 && validarCnpj(cand)) {
+                                        cnpjsEncontrados.add(cand);
+                                        if (!nomesPorCnpj.containsKey(cand) && !title.isBlank()) {
+                                            String nomeLimpo = limparNomePreliminar(title, cand);
+                                            if (!nomeLimpo.isBlank()) {
+                                                nomesPorCnpj.put(cand, nomeLimpo);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Erro ao executar busca Tavily para '{}' (query: {}): {}", cidade, q, e.getMessage());
+                }
+            }
+
+            log.info("Tavily localizou {} CNPJs únicos para {}", cnpjsEncontrados.size(), cidade);
+
+            for (String cnpj : cnpjsEncontrados) {
+                try {
+                    Map<String, String> dadosOficiais = null;
+                    try {
+                        dadosOficiais = consultarDadosCadastraisCompletos(cnpj);
+                    } catch (Exception ex) {
+                        log.debug("Consulta cadastral para CNPJ {} falhou: {}", cnpj, ex.getMessage());
+                    }
+
+                    String razaoSocial = dadosOficiais != null ? dadosOficiais.get("razaoSocial") : null;
+                    String nomeFantasia = dadosOficiais != null ? dadosOficiais.get("nomeFantasia") : null;
+                    String nome = (nomeFantasia != null && !nomeFantasia.isBlank()) ? nomeFantasia : razaoSocial;
+
+                    if (nome == null || nome.isBlank()) {
+                        nome = nomesPorCnpj.get(cnpj);
+                    }
+                    if (nome == null || nome.isBlank()) {
+                        continue;
+                    }
+
+                    nome = limparNomePreliminar(nome, cnpj);
+
+                    // Evita duplicatas se já existe em Empresas ou Pesquisas
+                    if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nome) ||
+                        pesquisaRepository.existsByIdUsuarioAndConsultaIgnoreCase(idUsuario, nome)) {
+                        continue;
+                    }
+
+                    String telefone = dadosOficiais != null ? dadosOficiais.get("telefone") : null;
+                    if (telefone == null || telefone.isBlank()) {
+                        telefone = "Não informado";
+                    }
+
+                    String email = dadosOficiais != null ? dadosOficiais.get("email") : null;
+                    if (email == null || email.isBlank()) {
+                        email = "Não informado";
+                    }
+
+                    String endereco = dadosOficiais != null ? dadosOficiais.get("endereco") : "Centro";
+                    String cidadeFinal = dadosOficiais != null && dadosOficiais.containsKey("cidade") ? dadosOficiais.get("cidade") : cidade;
+                    String estadoFinal = dadosOficiais != null && dadosOficiais.containsKey("estado") ? dadosOficiais.get("estado") : estado;
+
+                    String categoria = CategoriaDetector.detectar(null, nome);
+                    String site = resolverWebsite(null, null, telefone);
+                    String cnpjFormatado = formatarCnpjMascara(cnpj);
+
+                    Map<String, String> meta = new LinkedHashMap<>();
+                    meta.put("endereco", endereco);
+                    meta.put("cidade", cidadeFinal);
+                    meta.put("estado", estadoFinal);
+                    meta.put("categoria", categoria);
+                    meta.put("horario", "Seg a Sex 08:00 - 18:00");
+                    meta.put("telefone", telefone);
+                    meta.put("email", email);
+                    meta.put("site", site);
+                    meta.put("cnpj", cnpjFormatado);
+                    if (razaoSocial != null && !razaoSocial.isBlank()) {
+                        meta.put("razaoSocial", razaoSocial);
+                    }
+
+                    String regiaoJson = objectMapper.writeValueAsString(meta);
+
+                    Pesquisa p = Pesquisa.builder()
+                            .idUsuario(idUsuario)
+                            .consulta(nome)
+                            .regiao(regiaoJson)
+                            .status("completed")
+                            .build();
+
+                    pesquisaRepository.save(p);
+                    novasEmpresas++;
+                    log.info("Empresa de {} salva com sucesso: {} (CNPJ: {})", cidade, nome, cnpjFormatado);
+
+                } catch (Exception ex) {
+                    log.error("Erro ao processar e salvar empresa CNPJ {} de {}: {}", cnpj, cidade, ex.getMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("Erro geral na prospecção de {}: {}", cidade, e.getMessage());
+        }
+
+        return novasEmpresas;
+    }
+
+    private String limparNomePreliminar(String raw, String cnpj) {
+        if (raw == null) return "";
+        String nome = raw.trim();
+        // Remove sufixos como "- 51274888000191 Porto Barreiro" ou "| CNPJ ..."
+        nome = nome.replaceAll("(?i)\\s*-\\s*\\d{14}.*", "");
+        nome = nome.replaceAll("(?i)\\s*\\d{14}.*", "");
+        nome = nome.replaceAll("(?i)\\s*\\|.*", "");
+        nome = nome.replaceAll("(?i)\\s*-\\s*Porto Barreiro.*", "");
+        nome = nome.replaceAll("(?i)\\s*Porto Barreiro.*", "");
+        // Remove prefixo de CNPJ (ex: "51.274.888 Victor Mazon" ou "68.860.607 Alexandre Kuster")
+        nome = nome.replaceAll("^\\d{2}\\.\\d{3}\\.\\d{3}\\s*", "");
+        nome = nome.replaceAll("^\\d{14}\\s*", "");
+        return nome.trim();
+    }
+
+    private String removerAcentos(String str) {
+        if (str == null) return "";
+        return Normalizer.normalize(str, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+    }
+
     private CidadeCoordenada identificarCidade(double lat, double lon, String cidadeInformada) {
         if (cidadeInformada != null && !cidadeInformada.isBlank()) {
+            String cidNorm = removerAcentos(cidadeInformada).toLowerCase().trim();
             for (CidadeCoordenada c : CIDADES) {
-                if (c.nome().equalsIgnoreCase(cidadeInformada.trim())) {
+                String cNomeNorm = removerAcentos(c.nome()).toLowerCase().trim();
+                if (cidNorm.contains(cNomeNorm) || cNomeNorm.contains(cidNorm)) {
                     return c;
                 }
             }

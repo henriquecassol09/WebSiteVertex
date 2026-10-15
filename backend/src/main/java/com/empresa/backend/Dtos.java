@@ -146,9 +146,20 @@ record PesquisaResponse(
                     if (partes.length > 0 && !partes[0].isBlank()) cidade = partes[0].trim();
                     if (partes.length > 1 && !partes[1].isBlank()) estado = partes[1].trim();
                 }
+            } else if (raw.toLowerCase().contains("porto barreiro")) {
+                cidade = "Porto Barreiro";
+                endereco = raw.trim();
             } else {
                 endereco = raw.trim();
             }
+        }
+
+        if (cidade.equalsIgnoreCase("Laranjeiras do Sul") && (
+                (p.getConsulta() != null && p.getConsulta().toLowerCase().contains("porto barreiro")) ||
+                (endereco != null && endereco.toLowerCase().contains("porto barreiro")) ||
+                (raw != null && raw.toLowerCase().contains("porto barreiro"))
+        )) {
+            cidade = "Porto Barreiro";
         }
 
         String regiaoFormatada = cidade + " - " + estado;

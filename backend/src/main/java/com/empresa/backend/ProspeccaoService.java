@@ -74,17 +74,6 @@ public class ProspeccaoService {
     );
 
     // Bounding Box e cidades atendidas para enriquecimento geográfico
-    private record CidadeCoordenada(String nome, double lat, double lon, String ddd) {}
-
-    private static final List<CidadeCoordenada> CIDADES = List.of(
-            new CidadeCoordenada("Laranjeiras do Sul", -25.4086, -52.4161, "42"),
-            new CidadeCoordenada("Rio Bonito do Iguaçu", -25.4931, -52.5342, "42"),
-            new CidadeCoordenada("Porto Barreiro", -25.5469, -52.4078, "42"),
-            new CidadeCoordenada("Virmond", -25.3817, -52.2003, "42"),
-            new CidadeCoordenada("Cantagalo", -25.3744, -52.0089, "42"),
-            new CidadeCoordenada("Nova Laranjeiras", -25.3056, -52.5408, "42")
-    );
-
     private static final Set<String> TIPOS_IGNORADOS = Set.of(
             "fountain", "police", "fire_station", "townhall", "school", "bus_station", "library", "charging_station"
     );
@@ -104,6 +93,9 @@ public class ProspeccaoService {
         }
 
         try {
+            // Remove registros legados com cidades não citadas
+            limparPesquisasInvalidas(idUsuario);
+
             String bbox = "-25.68,-52.60,-25.25,-51.95";
 
             // Consulta Overpass buscando nós e vias comerciais
@@ -169,15 +161,37 @@ public class ProspeccaoService {
                 log.warn("Falha na prospecção complementar de Porto Barreiro: {}", e.getMessage());
             }
 
+            limparPesquisasInvalidas(idUsuario);
+
             return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 100))
                     .getContent()
                     .stream()
                     .map(PesquisaResponse::from)
+                    .filter(r -> CidadeHelper.isCidadeCitada(r.cidade()))
                     .toList();
         } finally {
             if (idUsuario != null) {
                 PROSPECCOES_ATIVAS.remove(idUsuario);
             }
+        }
+    }
+
+    /**
+     * Higieniza registros que possuam cidades fora das 6 cidades citadas.
+     */
+    public void limparPesquisasInvalidas(String idUsuario) {
+        if (idUsuario == null) return;
+        try {
+            List<Pesquisa> pesquisas = pesquisaRepository.findByIdUsuario(idUsuario, PageRequest.of(0, 500)).getContent();
+            for (Pesquisa p : pesquisas) {
+                PesquisaResponse resp = PesquisaResponse.from(p);
+                if (!CidadeHelper.isCidadeCitada(resp.cidade())) {
+                    pesquisaRepository.delete(p);
+                    log.info("Pesquisa higienizada (cidade não citada '{}'): {}", resp.cidade(), p.getConsulta());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Aviso ao higienizar pesquisas com cidades não citadas: {}", e.getMessage());
         }
     }
 
@@ -206,7 +220,14 @@ public class ProspeccaoService {
 
             double lat = el.path("lat").asDouble(el.path("center").path("lat").asDouble(-25.4086));
             double lon = el.path("lon").asDouble(el.path("center").path("lon").asDouble(-52.4161));
-            CidadeCoordenada cidadeInfo = identificarCidade(lat, lon, tags.path("addr:city").asText(null));
+            
+            // Identifica se pertence estritamente a uma das 6 cidades citadas
+            CidadeHelper.CidadeInfo cidadeInfo = CidadeHelper.identificarCidade(lat, lon, tags.path("addr:city").asText(null));
+            if (cidadeInfo == null) {
+                // Fora das 6 cidades citadas ou explicitamente de outro município vizinho
+                continue;
+            }
+
             String cidade = cidadeInfo.nome();
             String estado = "PR";
             String dddPadrao = cidadeInfo.ddd();
@@ -268,9 +289,24 @@ public class ProspeccaoService {
                 try {
                     Map<String, String> dadosOficiais = consultarDadosCadastraisCompletos(cnpjFinal);
                     if (dadosOficiais != null) {
-                        emailOficial = dadosOficiais.get("email");
-                        telefoneOficial = dadosOficiais.get("telefone");
-                        razaoSocialOficial = dadosOficiais.get("razaoSocial");
+                        String cidadeCadastral = dadosOficiais.get("cidade");
+                        // Se a Receita Federal trouxer a cidade da empresa, ela DEVE ser uma das cidades citadas
+                        if (cidadeCadastral != null && !cidadeCadastral.isBlank()) {
+                            String cidNorm = CidadeHelper.normalizarCidade(cidadeCadastral);
+                            if (cidNorm == null) {
+                                // O CNPJ encontrado pertence a empresa de outra cidade (ex: Curitiba, Cascavel, etc.)
+                                log.debug("Descartando CNPJ {} para '{}': cidade cadastral '{}' é fora da comarca", cnpjFinal, nome, cidadeCadastral);
+                                cnpjFinal = null;
+                            } else {
+                                emailOficial = dadosOficiais.get("email");
+                                telefoneOficial = dadosOficiais.get("telefone");
+                                razaoSocialOficial = dadosOficiais.get("razaoSocial");
+                            }
+                        } else {
+                            emailOficial = dadosOficiais.get("email");
+                            telefoneOficial = dadosOficiais.get("telefone");
+                            razaoSocialOficial = dadosOficiais.get("razaoSocial");
+                        }
                     }
                 } catch (Exception e) {
                     log.debug("Consulta oficial da Receita para CNPJ {}: {}", cnpjFinal, e.getMessage());
@@ -992,21 +1028,27 @@ public class ProspeccaoService {
     }
 
     /**
-     * Prospecção cadastral oficial dinâmica para cidades com baixa cobertura OSM (como Porto Barreiro - PR),
+     * Prospecção cadastral oficial dinâmica para cidades da comarca (como Porto Barreiro - PR),
      * utilizando a Tavily Search API para busca de CNPJs em portais oficiais da Receita Federal e enriquecimento
-     * automático com dados cadastrais reais (telefones, e-mails, endereços e atividades comerciais).
+     * automático com dados cadastrais reais. Apenas as 6 cidades citadas são aceitas.
      */
     public int prospectarCidadeEspecificaTavily(String idUsuario, String cidade, String estado) {
+        String cidadeCanonica = CidadeHelper.normalizarCidade(cidade);
+        if (cidadeCanonica == null) {
+            log.warn("Tentativa de prospecção para cidade não citada: '{}'. Operação abortada.", cidade);
+            return 0;
+        }
+
         if (tavilyApiKey == null || tavilyApiKey.isBlank()) {
-            log.warn("Tavily API Key ausente; prospecção para {} não pôde ser executada.", cidade);
+            log.warn("Tavily API Key ausente; prospecção para {} não pôde ser executada.", cidadeCanonica);
             return 0;
         }
 
         int novasEmpresas = 0;
         try {
             List<String> queries = List.of(
-                    String.format("site:cnpj.biz OR site:casadosdados.com.br \"%s\" %s comercio", cidade, estado),
-                    String.format("\"%s\" %s empresas CNPJ", cidade, estado)
+                    String.format("site:cnpj.biz OR site:casadosdados.com.br \"%s\" %s comercio", cidadeCanonica, estado != null ? estado : "PR"),
+                    String.format("\"%s\" %s empresas CNPJ", cidadeCanonica, estado != null ? estado : "PR")
             );
 
             Set<String> cnpjsEncontrados = new java.util.LinkedHashSet<>();
@@ -1065,11 +1107,11 @@ public class ProspeccaoService {
                         }
                     }
                 } catch (Exception e) {
-                    log.warn("Erro ao executar busca Tavily para '{}' (query: {}): {}", cidade, q, e.getMessage());
+                    log.warn("Erro ao executar busca Tavily para '{}' (query: {}): {}", cidadeCanonica, q, e.getMessage());
                 }
             }
 
-            log.info("Tavily localizou {} CNPJs únicos para {}", cnpjsEncontrados.size(), cidade);
+            log.info("Tavily localizou {} CNPJs únicos para {}", cnpjsEncontrados.size(), cidadeCanonica);
 
             for (String cnpj : cnpjsEncontrados) {
                 try {
@@ -1078,6 +1120,16 @@ public class ProspeccaoService {
                         dadosOficiais = consultarDadosCadastraisCompletos(cnpj);
                     } catch (Exception ex) {
                         log.debug("Consulta cadastral para CNPJ {} falhou: {}", cnpj, ex.getMessage());
+                    }
+
+                    // Validação estrita: a cidade do CNPJ DEVE ser uma das cidades citadas
+                    String cidadeCadastral = dadosOficiais != null ? dadosOficiais.get("cidade") : null;
+                    String cidadeNormalizada = CidadeHelper.normalizarCidade(cidadeCadastral != null ? cidadeCadastral : cidadeCanonica);
+
+                    if (cidadeNormalizada == null) {
+                        // CNPJ retornado na busca pertence a outro município (ex: Curitiba, Cascavel, etc.)
+                        log.info("Descartando CNPJ {} de {}: cidade cadastral '{}' na Receita não é uma cidade citada", cnpj, cidadeCanonica, cidadeCadastral);
+                        continue;
                     }
 
                     String razaoSocial = dadosOficiais != null ? dadosOficiais.get("razaoSocial") : null;
@@ -1110,8 +1162,8 @@ public class ProspeccaoService {
                     }
 
                     String endereco = dadosOficiais != null ? dadosOficiais.get("endereco") : "Centro";
-                    String cidadeFinal = dadosOficiais != null && dadosOficiais.containsKey("cidade") ? dadosOficiais.get("cidade") : cidade;
-                    String estadoFinal = dadosOficiais != null && dadosOficiais.containsKey("estado") ? dadosOficiais.get("estado") : estado;
+                    String cidadeFinal = cidadeNormalizada;
+                    String estadoFinal = "PR";
 
                     String categoria = CategoriaDetector.detectar(null, nome);
                     String site = resolverWebsite(null, null, telefone);
@@ -1142,15 +1194,15 @@ public class ProspeccaoService {
 
                     pesquisaRepository.save(p);
                     novasEmpresas++;
-                    log.info("Empresa de {} salva com sucesso: {} (CNPJ: {})", cidade, nome, cnpjFormatado);
+                    log.info("Empresa de {} salva com sucesso: {} (CNPJ: {})", cidadeFinal, nome, cnpjFormatado);
 
                 } catch (Exception ex) {
-                    log.error("Erro ao processar e salvar empresa CNPJ {} de {}: {}", cnpj, cidade, ex.getMessage());
+                    log.error("Erro ao processar e salvar empresa CNPJ {} de {}: {}", cnpj, cidadeCanonica, ex.getMessage());
                 }
             }
 
         } catch (Exception e) {
-            log.error("Erro geral na prospecção de {}: {}", cidade, e.getMessage());
+            log.error("Erro geral na prospecção de {}: {}", cidadeCanonica, e.getMessage());
         }
 
         return novasEmpresas;
@@ -1169,35 +1221,5 @@ public class ProspeccaoService {
         nome = nome.replaceAll("^\\d{2}\\.\\d{3}\\.\\d{3}\\s*", "");
         nome = nome.replaceAll("^\\d{14}\\s*", "");
         return nome.trim();
-    }
-
-    private String removerAcentos(String str) {
-        if (str == null) return "";
-        return Normalizer.normalize(str, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
-    }
-
-    private CidadeCoordenada identificarCidade(double lat, double lon, String cidadeInformada) {
-        if (cidadeInformada != null && !cidadeInformada.isBlank()) {
-            String cidNorm = removerAcentos(cidadeInformada).toLowerCase().trim();
-            for (CidadeCoordenada c : CIDADES) {
-                String cNomeNorm = removerAcentos(c.nome()).toLowerCase().trim();
-                if (cidNorm.contains(cNomeNorm) || cNomeNorm.contains(cidNorm)) {
-                    return c;
-                }
-            }
-        }
-
-        CidadeCoordenada maisProxima = CIDADES.get(0);
-        double menorDistancia = Double.MAX_VALUE;
-
-        for (CidadeCoordenada c : CIDADES) {
-            double d = Math.hypot(lat - c.lat(), lon - c.lon());
-            if (d < menorDistancia) {
-                menorDistancia = d;
-                maisProxima = c;
-            }
-        }
-
-        return maisProxima;
     }
 }

@@ -231,28 +231,15 @@ export const PesquisasView = () => {
   const CIDADES_REGIAO = [
     'Laranjeiras do Sul',
     'Rio Bonito do Iguaçu',
+    'Porto Barreiro',
     'Virmond',
     'Cantagalo',
-    'Nova Laranjeiras',
-    'Porto Barreiro'
+    'Nova Laranjeiras'
   ];
 
   const cidadesDisponiveis = React.useMemo(() => {
-    const setCidades = new Set(CIDADES_REGIAO);
-    pesquisas.forEach((p) => {
-      const c = (p.cidade || p.regiao || '').trim();
-      if (c && c.toLowerCase() !== 'não informado' && c.toLowerCase() !== 'paraná') {
-        setCidades.add(c);
-      }
-    });
-    return Array.from(setCidades).sort((a, b) => {
-      const aIsPb = a.toLowerCase().includes('porto barreiro');
-      const bIsPb = b.toLowerCase().includes('porto barreiro');
-      if (aIsPb && !bIsPb) return 1;
-      if (!aIsPb && bIsPb) return -1;
-      return 0;
-    });
-  }, [pesquisas]);
+    return CIDADES_REGIAO;
+  }, []);
 
   const toggleCidade = (cidade) => {
     setFiltroCidades((prev) =>
@@ -284,6 +271,12 @@ export const PesquisasView = () => {
     (termoBusca.trim() !== '' ? 1 : 0);
 
   const pesquisasFiltradas = pesquisas.filter((p) => {
+    // 0. Restrição estrita: apenas as 6 cidades citadas
+    const cidadeNorm = (p.cidade || '').toLowerCase().trim();
+    const pertenceCidadesCitadas = CIDADES_REGIAO.some((c) =>
+      cidadeNorm.includes(c.toLowerCase()) || c.toLowerCase().includes(cidadeNorm)
+    );
+    if (!pertenceCidadesCitadas) return false;
     // 1. Termo de busca textual
     if (termoBusca.trim() !== '') {
       const termo = termoBusca.toLowerCase().trim();

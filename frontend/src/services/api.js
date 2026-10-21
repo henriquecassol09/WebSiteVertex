@@ -47,16 +47,20 @@ class ApiClient {
         data = await res.json().catch(() => ({}));
       }
     } catch {
-      // Fallback direto na porta 8080 caso o proxy local falhe
-      try {
-        res = await fetch(`http://127.0.0.1:8080/api/health`, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-        });
-        if (res.ok) {
-          data = await res.json().catch(() => ({}));
+      // Fallback apenas no ambiente de desenvolvimento local caso o proxy do Vite oscile
+      if (import.meta.env.DEV) {
+        try {
+          res = await fetch(`http://127.0.0.1:8080/api/health`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+          });
+          if (res.ok) {
+            data = await res.json().catch(() => ({}));
+          }
+        } catch {
+          res = null;
         }
-      } catch {
+      } else {
         res = null;
       }
     }
@@ -70,7 +74,7 @@ class ApiClient {
       available: isConnected,
       database: dbStatus,
       application: data.application || (isConnected ? 'UP' : 'DOWN'),
-      error: isConnected ? null : 'Backend indisponível na porta 8080',
+      error: isConnected ? null : (import.meta.env.DEV ? 'Backend indisponível na porta 8080' : 'Serviço temporariamente indisponível'),
       raw: data,
     };
   }
@@ -92,15 +96,20 @@ class ApiClient {
         headers,
       });
     } catch {
-      // Fallback direto no backend se o proxy do Vite tiver oscilado
-      try {
-        response = await fetch(`http://127.0.0.1:8080/api${endpoint}`, {
-          ...options,
-          headers,
-        });
-      } catch {
+      // Fallback direto no backend apenas em desenvolvimento caso o proxy do Vite tenha oscilado
+      if (import.meta.env.DEV) {
+        try {
+          response = await fetch(`http://127.0.0.1:8080/api${endpoint}`, {
+            ...options,
+            headers,
+          });
+        } catch {
+          this.backendAvailable = false;
+          throw new Error('Servidor indisponível no momento. Certifique-se de que o backend está ativo.');
+        }
+      } else {
         this.backendAvailable = false;
-        throw new Error('Servidor indisponível no momento. Certifique-se de que o backend está ativo.');
+        throw new Error('Servidor indisponível no momento. Certifique-se de que o serviço está ativo.');
       }
     }
 

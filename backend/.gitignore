@@ -1,20 +1,15 @@
-# ==============================================================================
-# VERTEX - Backend .gitignore (Spring Boot & Maven)
-# ==============================================================================
-
-# Compilação e Build
 target/
 *.class
 
-# Empacotamento
+
 *.war
 *.nar
 *.ear
 
-# Maven Wrapper (garante que o executável funcione ao clonar)
+
 !.mvn/wrapper/maven-wrapper.jar
 
-# Credenciais e Variáveis de Ambiente (Neon DB, JWT Secret)
+
 .env
 .env.*
 !.env.example
@@ -22,14 +17,14 @@ target/
 *.pem
 *.secret
 
-# Logs e Dumps
+
 logs/
 *.log
 hs_err_pid*
 replay_pid*
 *.hprof
 
-# IDEs e Editores
+
 .idea/
 *.iml
 *.ipr
@@ -40,6 +35,6 @@ replay_pid*
 .settings/
 bin/
 
-# Sistema Operacional
+
 .DS_Store
 Thumbs.db

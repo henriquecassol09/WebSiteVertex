@@ -23,7 +23,7 @@ São permitidos forks do repositório: o projeto é aberto ao público para estu
 - **Backend:** Java 21, Spring Boot 3, Spring Security e JWT.
 - **Banco de Dados:** PostgreSQL 16 e Flyway.
 - **Infraestrutura & Ferramentas:** Docker, Docker Compose e Maven.
-- **APIs Externas:** Overpass API (OpenStreetMap), BrasilAPI / Minha Receita e CNPJ Já (Consulta pública de CNPJ).
+- **APIs Externas:** Overpass API (OpenStreetMap), BrasilAPI / Minha Receita e CNPJJá (Consulta pública de CNPJ).
 
 ---
 

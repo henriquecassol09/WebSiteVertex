@@ -94,7 +94,7 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-vertex-dark-card rounded-lg border border-vertex-border dark:border-vertex-dark-border shadow-elevated dark:shadow-dark-card py-1.5 text-xs animate-in fade-in-50 zoom-in-95 duration-150">
+                <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-24px)] bg-white dark:bg-vertex-dark-card rounded-lg border border-vertex-border dark:border-vertex-dark-border shadow-elevated dark:shadow-dark-card py-1.5 text-xs animate-in fade-in-50 zoom-in-95 duration-150 z-50">
                   <div className="px-3.5 py-2.5 border-b border-vertex-border-light dark:border-vertex-dark-border bg-slate-50/50 dark:bg-vertex-dark-surface/50">
                     <p className="font-semibold text-vertex-dark dark:text-vertex-dark-text truncate">{user?.nome || 'Usuário'}</p>
                     <p className="text-vertex-muted dark:text-vertex-dark-muted text-[11px] truncate font-mono">{user?.email || 'email@vertex.com'}</p>
@@ -106,9 +106,9 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
                         setUserMenuOpen(false);
                         onOpenAuth('login');
                       }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 dark:hover:bg-vertex-dark-surface flex items-center gap-2 text-vertex-dark dark:text-vertex-dark-text transition-colors duration-150"
+                      className="w-full text-left px-3.5 py-2.5 min-h-[40px] hover:bg-slate-50 dark:hover:bg-vertex-dark-surface flex items-center gap-2 text-vertex-dark dark:text-vertex-dark-text transition-colors duration-150"
                     >
-                      <User className="w-3.5 h-3.5 text-vertex-orange" />
+                      <User className="w-3.5 h-3.5 text-vertex-orange shrink-0" />
                       <span>Trocar de Conta</span>
                     </button>
 
@@ -118,9 +118,9 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
                         await logout();
                         if (onOpenLoginScreen) onOpenLoginScreen();
                       }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 text-red-600 dark:text-red-400 transition-colors duration-150"
+                      className="w-full text-left px-3.5 py-2.5 min-h-[40px] hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2 text-red-600 dark:text-red-400 transition-colors duration-150"
                     >
-                      <LogOut className="w-3.5 h-3.5 text-red-500" />
+                      <LogOut className="w-3.5 h-3.5 text-red-500 shrink-0" />
                       <span>Encerrar Sessão</span>
                     </button>
                   </div>
@@ -130,7 +130,7 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
           </div>
         </div>
 
-        <div className="md:hidden flex items-center gap-1 py-2 border-t border-vertex-border-light dark:border-vertex-dark-border overflow-x-auto">
+        <div className="md:hidden flex items-center gap-1.5 py-2 border-t border-vertex-border-light dark:border-vertex-dark-border overflow-x-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
@@ -138,10 +138,10 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
               <button
                 key={item.id}
                 onClick={() => onViewChange(item.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium shrink-0 transition-colors ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 min-h-[38px] rounded-lg text-xs font-medium shrink-0 transition-all ${
                   isActive
-                    ? 'bg-vertex-orange text-white'
-                    : 'text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-vertex-border-light dark:hover:bg-vertex-dark-surface'
+                    ? 'bg-vertex-orange text-white shadow-xs font-semibold'
+                    : 'text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />

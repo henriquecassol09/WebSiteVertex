@@ -157,7 +157,7 @@ public class DosDefenseFilter extends OncePerRequestFilter {
                 filterChain.doFilter(request, response);
             } else {
                 registrarViolacao(ip);
-                long retryAfter = isProspeccao ? 300 : 60;
+                long retryAfter = isProspeccao ? 10 : 5;
                 rejeitarRequisicao(response, 429, retryAfter,
                         "Muitas requisicoes. Limite de taxa excedido. Tente novamente mais tarde.");
             }
@@ -169,7 +169,7 @@ public class DosDefenseFilter extends OncePerRequestFilter {
 
     private void registrarViolacao(String ip) {
         int contagem = violacoesPorIp.computeIfAbsent(ip, k -> new AtomicInteger(0)).incrementAndGet();
-        if (contagem >= 5) {
+        if (contagem >= 20) {
             log.error("DoS Defense: IP {} atingiu {} violacoes. Aplicando quarentena temporaria de {} minutos.",
                     ip, contagem, jailMinutes);
             quarentenaIps.put(ip, Instant.now().plus(Duration.ofMinutes(jailMinutes)));

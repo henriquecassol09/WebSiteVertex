@@ -19,7 +19,6 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
   const { login, register, confirmRegister } = useAuth();
   const toast = useToast();
 
-  // Sincroniza o modo e limpa os campos sempre que o modal abre ou initialMode muda
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
@@ -34,7 +33,6 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
 
   if (!isOpen) return null;
 
-  // Validações da anotação @SenhaForte
   const hasMinLength = senha.length >= 10 && senha.length <= 128;
   const hasUpper = /[A-Z]/.test(senha);
   const hasLower = /[a-z]/.test(senha);

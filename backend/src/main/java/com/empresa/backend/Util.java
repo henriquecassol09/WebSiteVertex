@@ -39,11 +39,7 @@ class SenhaForteValidator implements ConstraintValidator<SenhaForte, String> {
     }
 }
 
-/**
- * Geracao de tokens opacos (refresh tokens) e hashing SHA-256 para
- * persistencia — o valor em texto puro nunca e gravado no banco, apenas
- * devolvido uma unica vez ao cliente.
- */
+// Utilitário de hash e geração de tokens
 final class HashUtil {
 
     private static final SecureRandom RANDOM = new SecureRandom();

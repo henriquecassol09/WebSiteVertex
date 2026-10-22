@@ -9,18 +9,11 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Serviços integrados de Defesa contra Quebra de Autenticação e Controle de Acesso (OWASP A01 e A07).
- *
- * 1. LoginAttemptService: Bloqueia ataques de força bruta e credential stuffing via Account Lockout temporário.
- * 2. OtpAttemptService: Bloqueia ataques de força bruta contra códigos numéricos OTP de 6 dígitos.
- * 3. TokenBlacklistService: Invalidação instantânea de tokens JWT no logout ou troca de senha (Session Revocation).
- */
 @Slf4j
 @Service
 public class AccessControlDefense {
 
-    // === 1. CONTROLE DE TENTATIVAS DE LOGIN E BLOQUEIO DE CONTA (ACCOUNT LOCKOUT) ===
+    // Bloqueio de login por tentativas
     private static final int MAX_LOGIN_ATTEMPTS = 5;
     private static final Duration LOCKOUT_DURATION = Duration.ofMinutes(15);
 
@@ -87,7 +80,7 @@ public class AccessControlDefense {
         contasBloqueadas.remove("email:" + email.toLowerCase().trim());
     }
 
-    // === 2. PROTECAO CONTRA FORCA BRUTA EM CODIGOS OTP DE 6 DIGITOS ===
+    // Proteção OTP
     private static final int MAX_OTP_ATTEMPTS = 5;
     private final ConcurrentHashMap<String, AtomicInteger> tentativasOtpPorIdentificador = new ConcurrentHashMap<>();
 
@@ -107,7 +100,7 @@ public class AccessControlDefense {
         tentativasOtpPorIdentificador.remove(identificador);
     }
 
-    // === 3. LISTA NEGRA DE TOKENS JWT (REVOGACAO IMEDIATA DE SESSOES NO LOGOUT) ===
+    // Blacklist JWT
     private final ConcurrentHashMap<String, Instant> tokenBlacklist = new ConcurrentHashMap<>();
 
     public void revogarTokenJwt(String token, Instant expiraEm) {
@@ -128,9 +121,6 @@ public class AccessControlDefense {
         return true;
     }
 
-    /**
-     * Limpeza periodica a cada 10 minutos para evitar crescimento indefinido da memoria.
-     */
     @Scheduled(fixedRate = 600000)
     public void limparCadastrosExpirados() {
         Instant agora = Instant.now();

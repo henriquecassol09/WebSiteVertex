@@ -43,14 +43,12 @@ public class Config {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // BCrypt com fator de custo 12 (equilibrio entre seguranca e performance)
         return new BCryptPasswordEncoder(12);
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // API stateless com JWT protegida contra CSRF por CsrfDefenseFilter dedicado (Defense in Depth)
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -86,7 +84,7 @@ public class Config {
                 .anyRequest().authenticated()
             )
 
-            // Defesa Ativa em Camadas: DoS -> CSRF -> SQLi -> XSS -> JWT
+            // Cadeia de filtros de segurança
             .addFilterBefore(dosDefenseFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(csrfDefenseFilter, DosDefenseFilter.class)
             .addFilterAfter(sqlInjectionDefenseFilter, CsrfDefenseFilter.class)
@@ -117,14 +115,14 @@ public class Config {
     }
 }
 
-/** Expurga diariamente sessoes (refresh tokens) expiradas da tabela SESSAO. */
+// Expiração periódica de sessões
 @Component
 @RequiredArgsConstructor
 class LimpezaSessoesScheduler {
 
     private final SessaoRepository sessaoRepository;
 
-    @Scheduled(cron = "0 0 3 * * *") // 03:00 todo dia
+    @Scheduled(cron = "0 0 3 * * *")
     @Transactional
     public void limparSessoesExpiradas() {
         sessaoRepository.limparExpiradas(Instant.now());

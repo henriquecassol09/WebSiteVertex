@@ -35,17 +35,15 @@ export const PesquisasView = () => {
   const pageSize = 50;
   const [pageData, setPageData] = useState({ totalElements: 0, totalPages: 1 });
 
-  // Estados dos Filtros
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [termoBusca, setTermoBusca] = useState('');
-  const [filtroCidades, setFiltroCidades] = useState([]); // Array de cidades selecionadas (multi-seleção)
-  const [filtroWebsite, setFiltroWebsite] = useState('todos'); // 'todos' | 'com' | 'sem'
-  const [filtroTelefone, setFiltroTelefone] = useState('todos'); // 'todos' | 'com' | 'sem'
-  const [filtroEmail, setFiltroEmail] = useState('todos'); // 'todos' | 'com' | 'sem'
+  const [filtroCidades, setFiltroCidades] = useState([]);
+  const [filtroWebsite, setFiltroWebsite] = useState('todos');
+  const [filtroTelefone, setFiltroTelefone] = useState('todos');
+  const [filtroEmail, setFiltroEmail] = useState('todos');
 
   const toast = useToast();
 
-  // Cronômetro de tempo decorrido durante a busca com estimativa
   useEffect(() => {
     if (!buscandoOverpass) return;
     const interval = setInterval(() => {
@@ -84,13 +82,9 @@ export const PesquisasView = () => {
       });
       setEmpresasSalvasIds(salvas);
     } catch {
-      // silencioso
     }
   };
 
-  /**
-   * Dispara a busca via Backend Java (Spring Boot) com mensagem de estimativa
-   */
   const handleRealizarBusca = async () => {
     setSegundosDecorridos(0);
     setBuscandoOverpass(true);
@@ -147,10 +141,6 @@ export const PesquisasView = () => {
     }
   };
 
-  /**
-   * Salva uma empresa prospectada no banco (aparece na aba Empresas).
-   * Uma empresa salva NÃO deve aparecer em nenhuma busca.
-   */
   const handleSalvarEmpresa = async (p) => {
     setSalvandoId(p.idPesquisa);
     try {
@@ -185,7 +175,6 @@ export const PesquisasView = () => {
 
       await api.empresas.criar(payload);
 
-      // Remove a empresa salva da lista da busca imediatamente
       setPesquisas((prev) => prev.filter((item) => item.idPesquisa !== p.idPesquisa && item.consulta.toLowerCase() !== p.consulta.toLowerCase()));
       setEmpresasSalvasIds((prev) => new Set([...prev, p.idPesquisa]));
       setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
@@ -198,9 +187,6 @@ export const PesquisasView = () => {
     }
   };
 
-  /**
-   * Exclui uma busca registrada no banco
-   */
   const handleExcluirPesquisa = async (idPesquisa) => {
     if (!confirm('Deseja realmente excluir esta busca do banco de dados?')) return;
     try {
@@ -271,13 +257,12 @@ export const PesquisasView = () => {
     (termoBusca.trim() !== '' ? 1 : 0);
 
   const pesquisasFiltradas = pesquisas.filter((p) => {
-    // 0. Restrição estrita: apenas as 6 cidades citadas
     const cidadeNorm = (p.cidade || '').toLowerCase().trim();
     const pertenceCidadesCitadas = CIDADES_REGIAO.some((c) =>
       cidadeNorm.includes(c.toLowerCase()) || c.toLowerCase().includes(cidadeNorm)
     );
     if (!pertenceCidadesCitadas) return false;
-    // 1. Termo de busca textual
+
     if (termoBusca.trim() !== '') {
       const termo = termoBusca.toLowerCase().trim();
       const matchTexto =
@@ -291,7 +276,6 @@ export const PesquisasView = () => {
       if (!matchTexto) return false;
     }
 
-    // 2. Filtro de Cidades (Multi-seleção)
     if (filtroCidades.length > 0) {
       const matchCidade = filtroCidades.some((c) => {
         const cLow = c.toLowerCase().trim();
@@ -304,12 +288,10 @@ export const PesquisasView = () => {
       if (!matchCidade) return false;
     }
 
-    // 3. Filtro de Website ('todos' | 'com' | 'sem')
     const temSite = Boolean(p.site && p.site.trim() !== '');
     if (filtroWebsite === 'com' && !temSite) return false;
     if (filtroWebsite === 'sem' && temSite) return false;
 
-    // 4. Filtro de Telefone ('todos' | 'com' | 'sem')
     const temTelefone = Boolean(
       p.telefone && 
       p.telefone.toLowerCase() !== 'não informado' && 
@@ -318,7 +300,6 @@ export const PesquisasView = () => {
     if (filtroTelefone === 'com' && !temTelefone) return false;
     if (filtroTelefone === 'sem' && temTelefone) return false;
 
-    // 5. Filtro de E-mail ('todos' | 'com' | 'sem')
     const temEmail = Boolean(
       p.email && 
       p.email.toLowerCase() !== 'não informado' && 
@@ -339,7 +320,6 @@ export const PesquisasView = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-vertex-dark dark:text-vertex-dark-text">
@@ -350,7 +330,6 @@ export const PesquisasView = () => {
           </p>
         </div>
 
-        {/* Botão Clicável de Execução da Busca */}
         <button
           type="button"
           onClick={handleRealizarBusca}
@@ -371,7 +350,6 @@ export const PesquisasView = () => {
         </button>
       </div>
 
-      {/* Banner de Progresso da Busca em Andamento */}
       {buscandoOverpass && (
         <div className="bg-orange-50/90 dark:bg-vertex-orange/10 border border-vertex-orange/30 dark:border-vertex-orange/40 rounded-lg p-4 sm:p-5 shadow-subtle dark:shadow-dark-subtle transition-all duration-300">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -394,7 +372,6 @@ export const PesquisasView = () => {
             </div>
           </div>
 
-          {/* Barra de progresso */}
           <div className="w-full bg-vertex-orange/20 dark:bg-vertex-orange/20 h-1.5 rounded-full overflow-hidden mt-3.5">
             <div 
               className="bg-vertex-orange h-full rounded-full transition-all duration-1000 ease-out"
@@ -404,7 +381,7 @@ export const PesquisasView = () => {
         </div>
       )}
 
-      {/* Barra de Filtros & Busca Rápida (Parecido com a aba de Empresas) */}
+      {/* Barra de Filtros e Busca Rápida */}
       <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border rounded-lg p-3 sm:p-3.5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between shadow-subtle dark:shadow-dark-subtle transition-colors duration-700 ease-in-out">
         <div className="flex items-center gap-2 flex-1">
           <div className="relative flex-1">
@@ -428,7 +405,6 @@ export const PesquisasView = () => {
             )}
           </div>
 
-          {/* Botão de Filtros Escondidos */}
           <button
             type="button"
             onClick={() => setMostrarFiltros((prev) => !prev)}
@@ -448,13 +424,12 @@ export const PesquisasView = () => {
           </button>
         </div>
 
-        {/* Resumo rápido no cabeçalho da barra */}
         <div className="text-xs text-vertex-muted dark:text-vertex-dark-muted hidden md:block">
           Exibindo <strong className="text-vertex-dark dark:text-vertex-dark-text">{pesquisasFiltradas.length}</strong> de <strong className="text-vertex-dark dark:text-vertex-dark-text">{pesquisas.length}</strong>
         </div>
       </div>
 
-      {/* Painel de Filtros Retrátil */}
+      {/* Painel de Filtros */}
       {mostrarFiltros && (
         <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border rounded-lg p-4 sm:p-5 shadow-subtle dark:shadow-dark-subtle space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 transition-colors">
           <div className="flex items-center justify-between border-b border-vertex-border/70 dark:border-vertex-dark-border/80 pb-3">
@@ -492,7 +467,6 @@ export const PesquisasView = () => {
             </div>
           </div>
 
-          {/* Opção 1: Cidades (Multi-seleção) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text inline-flex items-center gap-1.5">
@@ -534,9 +508,7 @@ export const PesquisasView = () => {
             </div>
           </div>
 
-          {/* Opções 2, 3 e 4: Website, Telefone e E-mail */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2 border-t border-vertex-border/50 dark:border-vertex-dark-border/50">
-            {/* Website */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text inline-flex items-center gap-1.5">
                 <Globe2 className="w-3.5 h-3.5 text-blue-500" />
@@ -564,7 +536,6 @@ export const PesquisasView = () => {
               </div>
             </div>
 
-            {/* Telefone */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text inline-flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-emerald-600" />
@@ -592,7 +563,6 @@ export const PesquisasView = () => {
               </div>
             </div>
 
-            {/* E-mail */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text inline-flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-red-500" />
@@ -623,7 +593,7 @@ export const PesquisasView = () => {
         </div>
       )}
 
-      {/* Tabela de Empresas Encontradas na Busca */}
+      {/* Tabela de Empresas Encontradas */}
       <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border rounded-lg shadow-subtle dark:shadow-dark-subtle overflow-hidden transition-colors duration-700 ease-in-out">
         <div className="overflow-x-auto lg:overflow-x-visible">
           <table className="w-full text-left text-xs border-collapse">
@@ -676,7 +646,6 @@ export const PesquisasView = () => {
                       key={p.idPesquisa}
                       className="hover:bg-slate-50/50 dark:hover:bg-vertex-dark-surface/30 transition-colors duration-150"
                     >
-                      {/* Empresa & Atividade */}
                       <td className="py-3.5 px-3.5 xl:px-4 font-semibold text-vertex-dark dark:text-vertex-dark-text select-text">
                         <div className="flex items-start gap-2">
                           <Building2 className="w-3.5 h-3.5 text-vertex-orange shrink-0 mt-0.5" />
@@ -691,7 +660,6 @@ export const PesquisasView = () => {
                         </div>
                       </td>
 
-                      {/* Endereço & Cidade/Estado */}
                       <td className="py-3.5 px-3.5 xl:px-4 text-vertex-body dark:text-vertex-dark-text select-text">
                         <div className="flex items-start gap-1.5">
                           <MapPin className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
@@ -704,7 +672,6 @@ export const PesquisasView = () => {
                         </div>
                       </td>
 
-                      {/* Contato & CNPJ (Sem quebra de linha no CNPJ e Telefone no PC) */}
                       <td className="py-3.5 px-3.5 xl:px-4 text-vertex-body dark:text-vertex-dark-text select-text">
                         <div className="space-y-1">
                           {p.cnpj ? (
@@ -748,7 +715,6 @@ export const PesquisasView = () => {
                         </div>
                       </td>
 
-                      {/* Presença Web / Status */}
                       <td className="py-3.5 px-3.5 xl:px-4">
                         {p.site ? (
                           <a
@@ -769,12 +735,10 @@ export const PesquisasView = () => {
                         )}
                       </td>
 
-                      {/* Data */}
                       <td className="py-3.5 px-3.5 xl:px-4 font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted select-text whitespace-nowrap">
                         {formatDate(p.criadoEm)}
                       </td>
 
-                      {/* Ações ÚNICAS clicáveis: Salvar Empresa (ícone BookmarkPlus) & Excluir Busca (ícone Trash2) */}
                       <td className="py-3.5 px-3.5 xl:px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                           {jaSalva ? (
@@ -813,7 +777,6 @@ export const PesquisasView = () => {
           </table>
         </div>
 
-        {/* Paginação */}
         <div className="flex items-center justify-between px-5 py-3.5 border-t border-vertex-border dark:border-vertex-dark-border bg-slate-50/40 dark:bg-vertex-dark-surface/40 text-xs text-vertex-muted dark:text-vertex-dark-muted">
           <div>
             Total: <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text">{pesquisasFiltradas.length}</span> empresas {filtrosAtivosCount > 0 && `(filtradas de ${pesquisas.length})`}

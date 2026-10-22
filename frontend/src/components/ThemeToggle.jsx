@@ -2,11 +2,6 @@ import React from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { Moon, Sun } from 'lucide-react';
 
-/**
- * Botão interruptor (Toggle Switch) idêntico ao solicitado pelo usuário:
- * - Estado Desligado (Tema Claro): Base cinza-escuro com botão interno cinza-médio à esquerda.
- * - Estado Ligado (Tema Escuro Ativado): Base verde vibrante com botão interno branco à direita.
- */
 export const ThemeToggle = ({ showLabel = true, className = '' }) => {
   const { isDark, toggleTheme } = useTheme();
 
@@ -39,7 +34,6 @@ export const ThemeToggle = ({ showLabel = true, className = '' }) => {
         }`}
       >
         <span className="sr-only">Alternar tema escuro</span>
-        {/* Thumb circular com animação fluida */}
         <span
           className={`pointer-events-none inline-block h-5 w-5 transform rounded-full transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-md ${
             isDark

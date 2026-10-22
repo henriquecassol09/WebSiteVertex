@@ -35,20 +35,17 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-vertex-dark-card/90 backdrop-blur-md border-b border-vertex-border dark:border-vertex-dark-border transition-colors duration-700 ease-in-out">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo & Marca VERTEX */}
           <div className="flex items-center gap-8">
             <div 
               className="cursor-pointer flex items-center transition-opacity hover:opacity-90 active:scale-[0.99] duration-150" 
               onClick={() => onViewChange('pesquisas')}
             >
               <div className="flex items-center">
-                {/* Logo Tema Claro */}
                 <img
                   src={logoClaro}
                   alt="VERTEX"
                   className="h-8 md:h-10 w-auto object-contain max-w-[160px] block dark:hidden"
                 />
-                {/* Logo Tema Escuro */}
                 <img
                   src={logoEscuro}
                   alt="VERTEX"
@@ -57,7 +54,6 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
               </div>
             </div>
 
-            {/* Navegação Principal */}
             <nav className="hidden md:flex items-center gap-1.5">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -80,14 +76,11 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
             </nav>
           </div>
 
-          {/* Área de Ações e Switch de Tema */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Botão de Alternar Tema (Toggle Idêntico ao Solicitado) */}
             <ThemeToggle />
 
             <div className="h-5 w-[1px] bg-vertex-border dark:bg-vertex-dark-border hidden sm:block" />
 
-            {/* Menu do Usuário */}
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -137,7 +130,6 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
           </div>
         </div>
 
-        {/* Navegação Mobile */}
         <div className="md:hidden flex items-center gap-1 py-2 border-t border-vertex-border-light dark:border-vertex-dark-border overflow-x-auto">
           {navItems.map((item) => {
             const Icon = item.icon;

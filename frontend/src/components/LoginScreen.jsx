@@ -24,16 +24,13 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
   const { login } = useAuth();
   const toast = useToast();
 
-  // 'login' | 'forgot_request' | 'forgot_reset'
   const [viewMode, setViewMode] = useState('login');
 
-  // Estados de Login
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberEmail, setRememberEmail] = useState(true);
 
-  // Estados de Recuperação de Senha
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotCodigo, setForgotCodigo] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
@@ -41,13 +38,11 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
   const [showNovaSenha, setShowNovaSenha] = useState(false);
   const [resendingCode, setResendingCode] = useState(false);
 
-  // Estados de Feedback
   const [errors, setErrors] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Carregar e-mail salvo previamente caso exista
   useEffect(() => {
     const savedEmail = localStorage.getItem('vertex_remembered_email');
     if (savedEmail) {
@@ -55,7 +50,6 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
     }
   }, []);
 
-  // Validação de Senha Forte
   const hasMinLength = novaSenha.length >= 10 && novaSenha.length <= 128;
   const hasUpper = /[A-Z]/.test(novaSenha);
   const hasLower = /[a-z]/.test(novaSenha);
@@ -221,17 +215,13 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center p-3 sm:p-4 bg-vertex-bg dark:bg-vertex-dark-bg transition-colors duration-700 ease-in-out selection:bg-vertex-orange selection:text-white">
-      {/* Luz ambiente de fundo sutil */}
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-vertex-orange/[0.035] dark:bg-vertex-orange/[0.045] rounded-full blur-3xl" />
 
-      {/* Botão de Tema Flutuante no Canto Superior Direito */}
       <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50">
         <ThemeToggle />
       </div>
 
-      {/* Card Principal */}
       <div className="relative z-10 w-full max-w-[420px] bg-white dark:bg-vertex-dark-card border border-gray-200 dark:border-vertex-dark-border rounded-xl shadow-elevated dark:shadow-dark-card px-6 py-6 sm:px-8 sm:py-7 transition-colors duration-700 ease-in-out">
-        {/* Topo do Card com Logos */}
         <div className="text-center mb-5">
           <div className="flex items-center justify-center mb-3">
             <div className="w-36 h-10 flex items-center justify-center">
@@ -260,7 +250,6 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </p>
         </div>
 
-        {/* Banner de Erro da API */}
         {errorMessage && (
           <div className="mb-4 p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/80 dark:bg-red-950/30 text-xs text-red-800 dark:text-red-300 animate-in fade-in space-y-2">
             <div className="flex items-start gap-2.5">
@@ -282,7 +271,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </div>
         )}
 
-        {/* MODO 1: LOGIN */}
+        {/* Modo: Login */}
         {viewMode === 'login' && (
           <form onSubmit={handleLoginSubmit} noValidate className="space-y-3.5">
             <div>
@@ -374,7 +363,6 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
               )}
             </div>
 
-            {/* Linha abaixo da caixa de senha com Lembrar e-mail e Esqueceu a senha */}
             <div className="flex items-center justify-between text-xs pt-0.5">
               <label className="flex items-center gap-2 cursor-pointer select-none text-gray-600 dark:text-vertex-dark-muted">
                 <input
@@ -420,7 +408,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </form>
         )}
 
-        {/* MODO 2: PEDIR CÓDIGO DE RECUPERAÇÃO */}
+        {/* Modo: Solicitar Recuperação */}
         {viewMode === 'forgot_request' && (
           <form onSubmit={handleForgotRequestSubmit} noValidate className="space-y-4">
             <div>
@@ -473,7 +461,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </form>
         )}
 
-        {/* MODO 3: INSERIR CÓDIGO + NOVA SENHA */}
+        {/* Modo: Redefinir Senha */}
         {viewMode === 'forgot_reset' && (
           <form onSubmit={handleForgotResetSubmit} noValidate className="space-y-3.5">
             <div>
@@ -585,7 +573,6 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
               )}
             </div>
 
-            {/* Checklist de Validação da Nova Senha */}
             <div className="p-2.5 bg-gray-50 dark:bg-gray-800/60 rounded border border-gray-200 dark:border-gray-700 space-y-1 text-[11px]">
               <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">
                 Requisitos da Nova Senha:
@@ -651,7 +638,6 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </form>
         )}
 
-        {/* Alternar para Cadastro */}
         {viewMode === 'login' && onSwitchToRegister && (
           <div className="mt-4 pt-3.5 border-t border-gray-100 dark:border-vertex-dark-border text-center">
             <p className="text-xs text-gray-500 dark:text-vertex-dark-muted">
@@ -667,7 +653,6 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </div>
         )}
 
-        {/* Rodapé de Segurança do Card */}
         <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-vertex-dark-border flex items-center justify-center gap-1.5 text-[10px] text-gray-500 dark:text-vertex-dark-muted">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           <span>Autenticação protegida via JWT HS256 & Rate Limiting</span>

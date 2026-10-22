@@ -29,11 +29,7 @@ class EmailNaoVerificadoException extends RuntimeException {
     EmailNaoVerificadoException(String message) { super(message); }
 }
 
-/**
- * Handler global: nunca expoe stack traces, mensagens internas de banco ou
- * detalhes de implementacao ao cliente. Tudo e logado no servidor com
- * detalhe; a resposta ao cliente e sempre generica e padronizada.
- */
+// Tratamento global de exceções
 @RestControllerAdvice
 public class Exceptions {
 
@@ -90,7 +86,6 @@ public class Exceptions {
 
     @ExceptionHandler(org.springframework.dao.DataAccessException.class)
     public ResponseEntity<Object> handleDataAccess(org.springframework.dao.DataAccessException ex) {
-        // Loga internamente para auditoria de seguranca mas oculta detalhes internos de SQL da resposta
         log.error("Erro de persistencia ou banco de dados detectado: {}", ex.getMessage());
         return corpo(HttpStatus.BAD_REQUEST, "Operacao recusada pelo banco de dados por violacao de integridade ou parametro invalido.");
     }

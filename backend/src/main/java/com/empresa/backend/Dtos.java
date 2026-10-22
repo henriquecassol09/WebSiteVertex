@@ -154,12 +154,10 @@ record PesquisaResponse(
             }
         }
 
-        // Normaliza estritamente para uma das 6 cidades citadas
         String cidadeNormalizada = CidadeHelper.normalizarCidade(cidade);
         if (cidadeNormalizada != null) {
             cidade = cidadeNormalizada;
         } else {
-            // Se o valor legado continha outra cidade, verifica menção a cidades citadas na consulta/endereço/raw
             String textoBusca = (p.getConsulta() + " " + endereco + " " + raw).toLowerCase();
             for (CidadeHelper.CidadeInfo c : CidadeHelper.CIDADES_CITADAS) {
                 if (textoBusca.contains(c.nome().toLowerCase())) {

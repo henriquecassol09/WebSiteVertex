@@ -8,11 +8,8 @@ public final class CategoriaDetector {
 
     private CategoriaDetector() {}
 
-    /**
-     * Identifica a categoria/segmento específico combinando tags do OSM e o nome do estabelecimento.
-     */
+    // Detecção por tags OSM e nome
     public static String detectar(JsonNode tags, String nome) {
-        // 1. Tenta tags especializadas do OSM
         if (tags != null) {
             String cuisine = tags.path("cuisine").asText("").toLowerCase().trim();
             if (cuisine.contains("pizza")) return "Pizzaria";
@@ -30,7 +27,6 @@ public final class CategoriaDetector {
 
             String categoriaTag = mapearTagEspecifica(amenity, shop, craft, healthcare, office, tourism, leisure);
             if (categoriaTag != null && !categoriaTag.equals("Comércio Local")) {
-                // Se a tag for muito genérica como 'restaurant' e o nome tiver 'pizza', refina
                 String refinadaPeloNome = refinarPeloNome(nome);
                 if (refinadaPeloNome != null) {
                     return refinadaPeloNome;
@@ -39,7 +35,6 @@ public final class CategoriaDetector {
             }
         }
 
-        // 2. Se as tags forem genéricas ou ausentes, infere pelo nome da empresa
         String categoriaNome = refinarPeloNome(nome);
         if (categoriaNome != null) {
             return categoriaNome;
@@ -48,9 +43,6 @@ public final class CategoriaDetector {
         return "Comércio e Serviços";
     }
 
-    /**
-     * Refina a categoria a partir do nome ou categoria existente genérica.
-     */
     public static String refinar(String categoriaExistente, String nome) {
         if (categoriaExistente != null &&
             !categoriaExistente.isBlank() &&
@@ -63,8 +55,8 @@ public final class CategoriaDetector {
         return identificada != null ? identificada : (categoriaExistente != null && !categoriaExistente.isBlank() ? categoriaExistente : "Comércio e Serviços");
     }
 
+    // Mapeamento de tags OSM
     private static String mapearTagEspecifica(String amenity, String shop, String craft, String healthcare, String office, String tourism, String leisure) {
-        // Amenity
         if (amenity.equals("pharmacy") || healthcare.equals("pharmacy") || shop.equals("chemist")) return "Farmácia";
         if (amenity.equals("veterinary")) return "Clínica Veterinária";
         if (amenity.equals("dentist") || healthcare.equals("dentist")) return "Consultório Odontológico";
@@ -78,7 +70,6 @@ public final class CategoriaDetector {
         if (amenity.equals("ice_cream")) return "Sorveteria";
         if (amenity.equals("car_wash")) return "Lava Jato";
 
-        // Shop
         if (shop.equals("clothes") || shop.equals("clothing") || shop.equals("boutique") || shop.equals("fashion") || shop.equals("apparel")) return "Loja de Roupas";
         if (shop.equals("shoes")) return "Loja de Calçados";
         if (shop.equals("supermarket")) return "Supermercado";
@@ -108,20 +99,16 @@ public final class CategoriaDetector {
         if (shop.equals("toys")) return "Loja de Brinquedos";
         if (shop.equals("gas")) return "Distribuidora de Gás e Água";
 
-        // Craft
         if (craft.equals("car_repair")) return "Oficina Mecânica";
         if (craft.equals("carpenter")) return "Marcenaria";
         if (craft.equals("glaziery")) return "Vidraçaria";
         if (craft.equals("blacksmith") || craft.equals("metal_construction")) return "Serralheria";
 
-        // Tourism
         if (tourism.equals("hotel")) return "Hotelaria";
         if (tourism.equals("guest_house") || tourism.equals("hostel")) return "Pousada";
 
-        // Leisure
         if (leisure.equals("fitness_centre")) return "Academia";
 
-        // Office
         if (office.equals("estate_agent")) return "Imobiliária";
         if (office.equals("lawyer")) return "Escritório de Advocacia";
         if (office.equals("accountant")) return "Escritório de Contabilidade";
@@ -129,25 +116,22 @@ public final class CategoriaDetector {
         return null;
     }
 
+    // Refinamento pelo nome do estabelecimento
     public static String refinarPeloNome(String nome) {
         if (nome == null || nome.isBlank()) return null;
 
         String n = normalizar(nome);
 
-        // Pizzaria e Massas
         if (n.contains("pizza") || n.contains("pizzaria") || n.contains("forneria")) return "Pizzaria";
 
-        // Farmácias e Medicamentos
         if (n.contains("farma") || n.contains("droga") || n.contains("medic") || n.contains("manipulacao")) return "Farmácia";
 
-        // Roupas, Moda e Confecções
         if (n.contains("calcado") || n.contains("sapat") || n.contains("tenis")) return "Loja de Calçados";
         if (n.contains("roupa") || n.contains("moda") || n.contains("confec") || n.contains("boutique") ||
             n.contains("vestu") || n.contains("looks") || n.contains("estilo") || n.contains("fashion") ||
             n.contains("jeans") || n.contains("lingerie") || n.contains("malhas") || n.contains("intim") ||
             n.contains("camis") || n.contains("trajes")) return "Loja de Roupas";
 
-        // Alimentação: Padaria, Confeitaria, Açougue
         if (n.contains("padaria") || n.contains("panific") || n.contains("pao") || n.contains("confeit") || n.contains("bolos") || n.contains("tortas")) return "Panificadora / Confeitaria";
         if (n.contains("acougue") || n.contains("carnes") || n.contains("frigorifico") || n.contains("bovino")) return "Açougue / Casa de Carnes";
         if (n.contains("sorvet") || n.contains("gelato") || n.contains("acai")) return "Sorveteria / Açaiteria";
@@ -156,10 +140,8 @@ public final class CategoriaDetector {
         if (n.contains("cafe") || n.contains("bistro") || n.contains("doceria")) return "Cafeteria / Bistrô";
         if (n.contains("bar ") || n.contains("bar.") || n.contains("pub") || n.contains("choperia") || n.contains("boteco") || n.contains("cerveja") || n.contains("bebidas")) return "Bar / Choperia";
 
-        // Mercados e Mercearias
         if (n.contains("mercado") || n.contains("supermercado") || n.contains("mercearia") || n.contains("armazem") || n.contains("emporio") || n.contains("hiper")) return "Supermercado / Mercado";
 
-        // Automotivo: Oficinas, Peças, Pneus, Postos
         if (n.contains("auto peca") || n.contains("autope") || n.contains("pecas auto")) return "Loja de Autopeças";
         if (n.contains("mecanic") || n.contains("oficina") || n.contains("auto eletric") || n.contains("funilaria") || n.contains("pintura automotiva") || n.contains("auto center") || n.contains("car service")) return "Oficina Mecânica";
         if (n.contains("pneu") || n.contains("borracharia") || n.contains("alinhamento")) return "Borracharia e Pneus";
@@ -167,34 +149,28 @@ public final class CategoriaDetector {
         if (n.contains("posto ") || n.contains("combustiv") || n.contains("abastec")) return "Posto de Combustíveis";
         if (n.contains("moto ") || n.contains("motos") || n.contains("motocicl")) return "Oficina / Loja de Motos";
 
-        // Saúde Animal e Agro
         if (n.contains("veterin") || n.contains("vet ") || n.contains("vet.")) return "Clínica Veterinária";
         if (n.contains("pet") || n.contains("banho e tosa") || n.contains("racoes")) return "Pet Shop";
         if (n.contains("agro") || n.contains("agricol") || n.contains("sementes") || n.contains("adubos") || n.contains("rural")) return "Agropecuária";
 
-        // Construção, Casa e Móveis
         if (n.contains("tinta")) return "Loja de Tintas";
         if (n.contains("construc") || n.contains("materiais") || n.contains("madeireira") || n.contains("ferrag")) return "Materiais de Construção";
         if (n.contains("moveis") || n.contains("estofad") || n.contains("colchao") || n.contains("colchoes") || n.contains("marcenaria") || n.contains("decorac")) return "Loja de Móveis e Decoração";
         if (n.contains("vidro") || n.contains("vidracaria") || n.contains("box")) return "Vidraçaria";
         if (n.contains("serralh")) return "Serralheria";
 
-        // Tecnologia e Óptica
         if (n.contains("celular") || n.contains("smart") || n.contains("phone") || n.contains("acessorios")) return "Loja de Celulares e Acessórios";
         if (n.contains("informatica") || n.contains("computad") || n.contains("eletron") || n.contains("tech")) return "Eletrônicos e Informática";
         if (n.contains("otica") || n.contains("optica") || n.contains("oculos") || n.contains("relogio") || n.contains("joia") || n.contains("relojoaria") || n.contains("semijoias")) return "Óptica e Joalheria";
 
-        // Beleza e Bem-Estar
         if (n.contains("barbearia") || n.contains("barber")) return "Barbearia";
         if (n.contains("salao") || n.contains("cabeleireir") || n.contains("hair") || n.contains("studio de beleza") || n.contains("coiffeur")) return "Salão de Beleza / Cabeleireiro";
         if (n.contains("estetica") || n.contains("cosmet") || n.contains("unhas") || n.contains("manicure") || n.contains("sobrancelh") || n.contains("depilac")) return "Estética e Cosméticos";
         if (n.contains("academia") || n.contains("fitness") || n.contains("crossfit") || n.contains("pilates") || n.contains("musculac") || n.contains("treino")) return "Academia";
 
-        // Saúde Humana
         if (n.contains("dentist") || n.contains("odont") || n.contains("sorriso") || n.contains("oral")) return "Consultório Odontológico";
         if (n.contains("clinica") || n.contains("medica") || n.contains("laboratorio") || n.contains("exames") || n.contains("saude") || n.contains("terapia") || n.contains("fisioterap") || n.contains("psicol")) return "Clínica Médica / Saúde";
 
-        // Outros
         if (n.contains("hotel") || n.contains("pousada") || n.contains("hospedag")) return "Hotelaria";
         if (n.contains("imobiliaria") || n.contains("imoveis") || n.contains("corretor")) return "Imobiliária";
         if (n.contains("advoc") || n.contains("advog") || n.contains("juridic")) return "Escritório de Advocacia";

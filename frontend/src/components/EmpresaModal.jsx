@@ -49,7 +49,6 @@ export const EmpresaModal = ({ isOpen, onClose, onSave, empresa, pesquisas = [] 
     setErrors({});
   }, [empresa, isOpen]);
 
-  // Fechar o modal com a tecla ESC
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {

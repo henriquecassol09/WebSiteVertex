@@ -17,9 +17,11 @@ import {
   Loader2,
   KeyRound,
   Check,
-  RefreshCw
+  RefreshCw,
+  LifeBuoy
 } from 'lucide-react';
 import { TermosUsoModal } from './TermosUsoModal';
+import { SuporteModal } from './SuporteModal';
 
 export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVerify }) => {
   const { login } = useAuth();
@@ -44,6 +46,9 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
   const [errorMessage, setErrorMessage] = useState('');
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const [suporteModalOpen, setSuporteModalOpen] = useState(false);
+  const [suporteOrigem, setSuporteOrigem] = useState('Esqueceu a Senha');
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('vertex_remembered_email');
@@ -460,6 +465,20 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
               <ArrowLeft className="w-3.5 h-3.5" />
               Voltar ao Login
             </button>
+
+            <div className="pt-2.5 text-center border-t border-gray-100 dark:border-vertex-dark-border mt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setSuporteOrigem('Esqueceu a Senha');
+                  setSuporteModalOpen(true);
+                }}
+                className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold text-vertex-orange hover:text-vertex-orange-hover hover:underline transition-colors py-1 px-2 cursor-pointer text-center leading-snug"
+              >
+                <LifeBuoy className="w-3.5 h-3.5 shrink-0" />
+                <span>Problemas para recuperar a senha? Abrir chamado de suporte</span>
+              </button>
+            </div>
           </form>
         )}
 
@@ -637,6 +656,20 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                 <span>Redefinir Senha e Voltar ao Login</span>
               )}
             </button>
+
+            <div className="pt-2.5 text-center border-t border-gray-100 dark:border-vertex-dark-border mt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setSuporteOrigem('Trocar / Redefinir Senha');
+                  setSuporteModalOpen(true);
+                }}
+                className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold text-vertex-orange hover:text-vertex-orange-hover hover:underline transition-colors py-1 px-2 cursor-pointer text-center leading-snug"
+              >
+                <LifeBuoy className="w-3.5 h-3.5 shrink-0" />
+                <span>Problemas para redefinir a senha? Abrir chamado de suporte</span>
+              </button>
+            </div>
           </form>
         )}
 
@@ -676,6 +709,14 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
         <TermosUsoModal
           isOpen={termosOpen}
           onClose={() => setTermosOpen(false)}
+        />
+        {/* Modal de Suporte Técnico */}
+        <SuporteModal
+          isOpen={suporteModalOpen}
+          onClose={() => setSuporteModalOpen(false)}
+          origem={suporteOrigem}
+          emailInicial={forgotEmail || email}
+          erroInicial={errorMessage}
         />
       </div>
     </div>

@@ -18,9 +18,11 @@ import {
   Fingerprint,
   Camera,
   Upload,
-  X
+  X,
+  LifeBuoy
 } from 'lucide-react';
 import { sanitizarUrlFoto } from '../utils/security';
+import { SuporteModal } from './SuporteModal';
 
 export const ConfiguracoesView = ({ onVoltar, onAccountDeleted }) => {
   const { user, carregarUsuario, alterarSenha, deletarConta, uploadFoto, removerFoto } = useAuth();
@@ -50,6 +52,8 @@ export const ConfiguracoesView = ({ onVoltar, onAccountDeleted }) => {
   const [loadingDeletar, setLoadingDeletar] = useState(false);
   const [deletarError, setDeletarError] = useState('');
 
+  // Chamado de Suporte State
+  const [suporteModalOpen, setSuporteModalOpen] = useState(false);
   useEffect(() => {
     carregarUsuario();
   }, [carregarUsuario]);
@@ -708,7 +712,7 @@ export const ConfiguracoesView = ({ onVoltar, onAccountDeleted }) => {
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-100 dark:border-vertex-dark-border mt-4 pt-4">
               <button
                 type="submit"
                 disabled={loadingSenha || !senhaAtual || !isNovaSenhaValida || novaSenha !== confirmarNovaSenha}
@@ -722,6 +726,15 @@ export const ConfiguracoesView = ({ onVoltar, onAccountDeleted }) => {
                 ) : (
                   <span>Salvar Nova Senha</span>
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSuporteModalOpen(true)}
+                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 text-xs sm:text-sm font-semibold text-vertex-orange hover:text-vertex-orange-hover hover:underline transition-colors py-2.5 px-4 rounded-lg border border-vertex-orange/30 hover:border-vertex-orange bg-vertex-orange/5 dark:bg-vertex-orange/10 cursor-pointer text-center leading-snug"
+              >
+                <LifeBuoy className="w-4 h-4 shrink-0" />
+                <span>Problemas ao trocar a senha? Abrir chamado de suporte</span>
               </button>
             </div>
           </form>
@@ -824,6 +837,15 @@ export const ConfiguracoesView = ({ onVoltar, onAccountDeleted }) => {
         </section>
 
       </div>
+      {/* Modal de Suporte Técnico */}
+      <SuporteModal
+        isOpen={suporteModalOpen}
+        onClose={() => setSuporteModalOpen(false)}
+        origem="Troca de Senha"
+        emailInicial={user?.email || ''}
+        nomeInicial={user?.nome || ''}
+        erroInicial={senhaErrors.general || ''}
+      />
     </div>
   );
 };

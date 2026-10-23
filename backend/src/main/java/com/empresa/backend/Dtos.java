@@ -296,3 +296,27 @@ record DadosCnpjResponse(
     String estado,
     String situacao
 ) {}
+
+// ===== Suporte Tecnico =====
+
+record ChamadoSuporteRequest(
+    @NotBlank(message = "O e-mail de contato e obrigatorio")
+    @Email(message = "Informe um e-mail valido")
+    @Size(max = 255)
+    String email,
+
+    @Size(max = 150)
+    String nome,
+
+    @NotBlank(message = "A origem do chamado e obrigatoria")
+    @Size(max = 100)
+    String origem,
+
+    @NotBlank(message = "Por favor, descreva o erro que esta ocorrendo no site")
+    @Size(min = 5, max = 5000, message = "A descricao do erro deve ter entre 5 e 5000 caracteres")
+    String descricaoErro,
+
+    @Size(max = 500)
+    String mensagemErroSistema
+) {}
+

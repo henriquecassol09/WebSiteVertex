@@ -491,6 +491,16 @@ class ApiClient {
       });
     }
   };
+
+  // Suporte Técnico
+  suporte = {
+    enviarChamado: async ({ email, nome, origem, descricaoErro, mensagemErroSistema }) => {
+      return await this.request('/suporte/chamado', {
+        method: 'POST',
+        body: JSON.stringify({ email, nome, origem, descricaoErro, mensagemErroSistema }),
+      });
+    },
+  };
 }
 
 export const api = new ApiClient();

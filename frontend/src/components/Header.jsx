@@ -9,13 +9,16 @@ import {
   User, 
   LogOut, 
   ChevronDown,
-  Settings
+  Settings,
+  LifeBuoy
 } from 'lucide-react';
 import { sanitizarUrlFoto } from '../utils/security';
+import { SuporteModal } from './SuporteModal';
 
 export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScreen }) => {
   const { user, logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [suporteModalOpen, setSuporteModalOpen] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -149,6 +152,17 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
                     </button>
 
                     <button
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setSuporteModalOpen(true);
+                      }}
+                      className="w-full text-left px-3.5 py-2.5 min-h-[40px] hover:bg-slate-50 dark:hover:bg-vertex-dark-surface flex items-center gap-2 text-vertex-dark dark:text-vertex-dark-text transition-colors duration-150"
+                    >
+                      <LifeBuoy className="w-3.5 h-3.5 text-vertex-orange shrink-0" />
+                      <span>Contatar Suporte</span>
+                    </button>
+
+                    <button
                       onClick={async () => {
                         setUserMenuOpen(false);
                         await logout();
@@ -196,6 +210,15 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
           )}
         </div>
       </div>
+
+      {/* Modal de Suporte Técnico */}
+      <SuporteModal
+        isOpen={suporteModalOpen}
+        onClose={() => setSuporteModalOpen(false)}
+        origem="Menu do Usuário"
+        emailInicial={user?.email || ''}
+        nomeInicial={user?.nome || ''}
+      />
     </header>
   );
 };

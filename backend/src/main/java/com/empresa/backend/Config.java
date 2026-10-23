@@ -78,7 +78,8 @@ public class Config {
                     "/api/auth/recuperar-senha",
                     "/api/auth/redefinir-senha",
                     "/api/auth/validar-email",
-                    "/api/auth/csrf-token"
+                    "/api/auth/csrf-token",
+                    "/api/suporte/chamado"
                 ).permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .anyRequest().authenticated()

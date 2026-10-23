@@ -628,3 +628,37 @@ class NotaEmpresaService {
         notaEmpresaRepository.delete(nota);
     }
 }
+
+@Service
+@RequiredArgsConstructor
+class SuporteService {
+
+    private final EmailService emailService;
+
+    MensagemResponse enviarChamado(ChamadoSuporteRequest req, HttpServletRequest httpReq) {
+        String ip = clientIp(httpReq);
+        String userAgent = httpReq != null ? httpReq.getHeader("User-Agent") : "Desconhecido";
+
+        emailService.enviarChamadoSuporte(
+                req.email().trim().toLowerCase(),
+                req.nome() != null && !req.nome().isBlank() ? req.nome().trim() : null,
+                req.origem().trim(),
+                req.descricaoErro().trim(),
+                req.mensagemErroSistema() != null && !req.mensagemErroSistema().isBlank() ? req.mensagemErroSistema().trim() : null,
+                ip,
+                userAgent
+        );
+
+        return MensagemResponse.of("Chamado de suporte enviado com sucesso! Nossa equipe técnica foi notificada e entrará em contato.");
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        if (request == null) return "Desconhecido";
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
+}
+

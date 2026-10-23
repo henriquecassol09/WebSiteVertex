@@ -4,7 +4,8 @@ import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import { VertexLogo } from './Logo';
 import { TermosUsoModal } from './TermosUsoModal';
-import { X, Lock, Mail, User, Check, AlertCircle, KeyRound, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react';
+import { SuporteModal } from './SuporteModal';
+import { X, Lock, Mail, User, Check, AlertCircle, KeyRound, ArrowLeft, RefreshCw, Loader2, LifeBuoy } from 'lucide-react';
 
 export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail = '' }) => {
   const [mode, setMode] = useState(initialMode); // 'login' | 'register' | 'verify'
@@ -15,6 +16,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
   const [codigo, setCodigo] = useState('');
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [termosModalAberto, setTermosModalAberto] = useState(false);
+  const [suporteModalOpen, setSuporteModalOpen] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -440,6 +442,19 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
               >
                 {loading ? 'Processando...' : mode === 'login' ? 'Entrar no VERTEX' : 'Criar Conta e Receber Código'}
               </button>
+
+              {mode === 'login' && (
+                <div className="pt-2 text-center border-t border-slate-100 dark:border-vertex-dark-border mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setSuporteModalOpen(true)}
+                    className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-vertex-orange hover:text-vertex-orange-hover hover:underline transition-colors py-1.5 px-2 cursor-pointer text-center leading-snug"
+                  >
+                    <LifeBuoy className="w-3.5 h-3.5 shrink-0" />
+                    <span>Problemas ao trocar de conta? Contatar suporte</span>
+                  </button>
+                </div>
+              )}
             </>
           )}
         </form>
@@ -452,6 +467,13 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
             setAceitouTermos(true);
             if (errors.aceitouTermos) setErrors((prev) => ({ ...prev, aceitouTermos: '' }));
           }}
+        />
+        {/* Modal de Suporte Técnico */}
+        <SuporteModal
+          isOpen={suporteModalOpen}
+          onClose={() => setSuporteModalOpen(false)}
+          origem="Trocar de Conta"
+          emailInicial={email || ''}
         />
       </div>
     </div>

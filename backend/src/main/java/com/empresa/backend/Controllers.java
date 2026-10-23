@@ -261,3 +261,18 @@ class NotaEmpresaController {
         return ResponseEntity.noContent().build();
     }
 }
+
+@RestController
+@RequestMapping("/api/suporte")
+@Validated
+@RequiredArgsConstructor
+class SuporteController {
+
+    private final SuporteService suporteService;
+
+    @PostMapping("/chamado")
+    ResponseEntity<MensagemResponse> enviarChamado(@Valid @RequestBody ChamadoSuporteRequest req, HttpServletRequest http) {
+        return ResponseEntity.ok(suporteService.enviarChamado(req, http));
+    }
+}
+

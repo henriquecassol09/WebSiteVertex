@@ -69,7 +69,6 @@ export const sanitizarUrlFoto = (url) => {
 
   return limpa;
 };
-
 // Escape de caracteres HTML
 export const escaparHtml = (str) => {
   if (!str || typeof str !== 'string') return '';

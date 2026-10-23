@@ -12,7 +12,7 @@ Este documento estabelece as diretrizes técnicas, arquiteturais e legais refere
 
 ## 2. Permissões e Condições de Uso.
 
-É expressamente proibido o uso comercial ou malicioso deste repositório, produto de venda ou obtenção de lucro.
+É expressamente proibido o uso comercial (venda do site ou do acesso dele) ou malicioso deste repositório, produto de venda ou obtenção de lucro.
 São permitidos forks do repositório: o projeto é aberto ao público para estudos e melhorias. Copiem, modifiquem e divirtam-se!
 
 ---

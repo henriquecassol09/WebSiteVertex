@@ -19,21 +19,20 @@ import {
   Check,
   RefreshCw
 } from 'lucide-react';
+import { TermosUsoModal } from './TermosUsoModal';
 
 export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVerify }) => {
   const { login } = useAuth();
   const toast = useToast();
 
-  // 'login' | 'forgot_request' | 'forgot_reset'
   const [viewMode, setViewMode] = useState('login');
+  const [termosOpen, setTermosOpen] = useState(false);
 
-  // Estados de Login
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberEmail, setRememberEmail] = useState(true);
 
-  // Estados de Recuperação de Senha
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotCodigo, setForgotCodigo] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
@@ -41,13 +40,11 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
   const [showNovaSenha, setShowNovaSenha] = useState(false);
   const [resendingCode, setResendingCode] = useState(false);
 
-  // Estados de Feedback
   const [errors, setErrors] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Carregar e-mail salvo previamente caso exista
   useEffect(() => {
     const savedEmail = localStorage.getItem('vertex_remembered_email');
     if (savedEmail) {
@@ -55,7 +52,6 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
     }
   }, []);
 
-  // Validação de Senha Forte
   const hasMinLength = novaSenha.length >= 10 && novaSenha.length <= 128;
   const hasUpper = /[A-Z]/.test(novaSenha);
   const hasLower = /[a-z]/.test(novaSenha);
@@ -220,21 +216,17 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-3 sm:p-4 bg-vertex-bg dark:bg-vertex-dark-bg transition-colors duration-700 ease-in-out selection:bg-vertex-orange selection:text-white">
-      {/* Luz ambiente de fundo sutil */}
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-vertex-orange/[0.035] dark:bg-vertex-orange/[0.045] rounded-full blur-3xl" />
+    <div className="relative min-h-[100dvh] w-full flex items-center justify-center p-3 sm:p-4 md:p-6 bg-vertex-bg dark:bg-vertex-dark-bg transition-colors duration-700 ease-in-out selection:bg-vertex-orange selection:text-white overflow-y-auto py-8 sm:py-12">
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] sm:w-[500px] h-[320px] sm:h-[500px] bg-vertex-orange/[0.035] dark:bg-vertex-orange/[0.045] rounded-full blur-3xl" />
 
-      {/* Botão de Tema Flutuante no Canto Superior Direito */}
-      <div className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50">
+      <div className="fixed top-3 right-3 sm:top-6 sm:right-6 z-50">
         <ThemeToggle />
       </div>
 
-      {/* Card Principal */}
-      <div className="relative z-10 w-full max-w-[420px] bg-white dark:bg-vertex-dark-card border border-gray-200 dark:border-vertex-dark-border rounded-xl shadow-elevated dark:shadow-dark-card px-6 py-6 sm:px-8 sm:py-7 transition-colors duration-700 ease-in-out">
-        {/* Topo do Card com Logos */}
-        <div className="text-center mb-5">
-          <div className="flex items-center justify-center mb-3">
-            <div className="w-36 h-10 flex items-center justify-center">
+      <div className="relative z-10 w-full max-w-[420px] bg-white dark:bg-vertex-dark-card border border-gray-200 dark:border-vertex-dark-border rounded-2xl shadow-elevated dark:shadow-dark-card px-4 py-5 xs:px-6 xs:py-6 sm:px-8 sm:py-7 my-auto transition-colors duration-700 ease-in-out">
+        <div className="text-center mb-4 sm:mb-5">
+          <div className="flex items-center justify-center mb-2.5 sm:mb-3">
+            <div className="w-32 sm:w-36 h-9 sm:h-10 flex items-center justify-center">
               <img
                 src={logoClaro}
                 alt="Logo Tema Claro"
@@ -248,19 +240,18 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
             </div>
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-vertex-dark-text">
+          <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-vertex-dark-text">
             {viewMode === 'login' && 'Acesso à Plataforma'}
             {viewMode === 'forgot_request' && 'Recuperar Senha'}
             {viewMode === 'forgot_reset' && 'Nova Senha'}
           </h1>
-          <p className="text-xs text-gray-500 dark:text-vertex-dark-muted mt-1 leading-normal">
+          <p className="text-xs text-gray-500 dark:text-vertex-dark-muted mt-1 leading-relaxed">
             {viewMode === 'login' && 'Entre com suas credenciais para gerenciar empresas e propostas.'}
             {viewMode === 'forgot_request' && 'Digite seu e-mail para receber um código de 6 dígitos via Gmail.'}
             {viewMode === 'forgot_reset' && `Insira o código enviado para ${forgotEmail} e defina a nova senha.`}
           </p>
         </div>
 
-        {/* Banner de Erro da API */}
         {errorMessage && (
           <div className="mb-4 p-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/80 dark:bg-red-950/30 text-xs text-red-800 dark:text-red-300 animate-in fade-in space-y-2">
             <div className="flex items-start gap-2.5">
@@ -282,7 +273,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </div>
         )}
 
-        {/* MODO 1: LOGIN */}
+        {/* Modo: Login */}
         {viewMode === 'login' && (
           <form onSubmit={handleLoginSubmit} noValidate className="space-y-3.5">
             <div>
@@ -374,14 +365,13 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
               )}
             </div>
 
-            {/* Linha abaixo da caixa de senha com Lembrar e-mail e Esqueceu a senha */}
-            <div className="flex items-center justify-between text-xs pt-0.5">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-gray-600 dark:text-vertex-dark-muted">
+            <div className="flex items-center justify-between text-xs pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-gray-600 dark:text-vertex-dark-muted py-1">
                 <input
                   type="checkbox"
                   checked={rememberEmail}
                   onChange={(e) => setRememberEmail(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-vertex-orange focus:ring-vertex-orange/30 accent-vertex-orange"
+                  className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-vertex-orange focus:ring-vertex-orange/30 accent-vertex-orange"
                 />
                 <span className="text-[11px] sm:text-xs">Lembrar e-mail</span>
               </label>
@@ -394,7 +384,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                   setErrorMessage('');
                   setViewMode('forgot_request');
                 }}
-                className="text-[11px] sm:text-xs text-vertex-orange hover:text-vertex-orange-hover font-semibold transition-colors"
+                className="text-[11px] sm:text-xs text-vertex-orange hover:text-vertex-orange-hover font-semibold transition-colors py-1 px-1 -mr-1"
               >
                 Esqueceu a senha?
               </button>
@@ -403,7 +393,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-lg bg-vertex-orange hover:bg-vertex-orange-hover active:scale-[0.98] text-white text-xs font-semibold tracking-wide transition-all duration-200 shadow-sm hover:shadow-glow-orange focus:outline-none focus:ring-2 focus:ring-vertex-orange/40 disabled:opacity-50 disabled:cursor-not-allowed group"
+              className="w-full min-h-[44px] py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-lg bg-vertex-orange hover:bg-vertex-orange-hover active:scale-[0.98] text-white text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 shadow-sm hover:shadow-glow-orange focus:outline-none focus:ring-2 focus:ring-vertex-orange/40 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               {loading ? (
                 <>
@@ -420,7 +410,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </form>
         )}
 
-        {/* MODO 2: PEDIR CÓDIGO DE RECUPERAÇÃO */}
+        {/* Modo: Solicitar Recuperação */}
         {viewMode === 'forgot_request' && (
           <form onSubmit={handleForgotRequestSubmit} noValidate className="space-y-4">
             <div>
@@ -438,7 +428,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                     if (errors.forgotEmail) setErrors((prev) => ({ ...prev, forgotEmail: '' }));
                   }}
                   placeholder="nome@empresa.com.br"
-                  className="w-full pl-10 pr-3.5 py-2.5 text-xs sm:text-sm rounded-lg border bg-gray-50 border-gray-300 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange"
+                  className="w-full pl-10 pr-3.5 min-h-[44px] py-2.5 text-xs sm:text-sm rounded-lg border bg-gray-50 border-gray-300 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange"
                 />
               </div>
               {errors.forgotEmail && <p className="text-[11px] text-red-500 mt-1">{errors.forgotEmail}</p>}
@@ -447,7 +437,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-lg bg-vertex-orange hover:bg-vertex-orange-hover text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
+              className="w-full min-h-[44px] py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-lg bg-vertex-orange hover:bg-vertex-orange-hover text-white text-xs sm:text-sm font-semibold transition-all shadow-sm disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -465,7 +455,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                 setViewMode('login');
                 setErrors({});
               }}
-              className="w-full flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-vertex-dark-muted hover:text-gray-800 dark:hover:text-vertex-dark-text transition-colors pt-1"
+              className="w-full min-h-[40px] flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-vertex-dark-muted hover:text-gray-800 dark:hover:text-vertex-dark-text transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Voltar ao Login
@@ -473,7 +463,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </form>
         )}
 
-        {/* MODO 3: INSERIR CÓDIGO + NOVA SENHA */}
+        {/* Modo: Redefinir Senha */}
         {viewMode === 'forgot_reset' && (
           <form onSubmit={handleForgotResetSubmit} noValidate className="space-y-3.5">
             <div>
@@ -494,7 +484,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                   }}
                   placeholder="000000"
                   maxLength={6}
-                  className="w-full text-center text-xl tracking-[0.3em] font-mono py-2 rounded-lg border bg-gray-50 border-gray-300 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange"
+                  className="w-full min-h-[46px] text-center text-lg sm:text-xl tracking-[0.25em] sm:tracking-[0.35em] font-mono py-2 rounded-lg border bg-gray-50 border-gray-300 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange"
                 />
               </div>
               {errors.forgotCodigo && <p className="text-[11px] text-red-500 mt-1 text-center">{errors.forgotCodigo}</p>}
@@ -515,13 +505,13 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                   }}
                   placeholder="••••••••••••"
                   maxLength={128}
-                  className="w-full pl-10 pr-10 py-2 text-xs sm:text-sm rounded-lg border bg-gray-50 border-gray-300 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange"
+                  className="w-full pl-10 pr-10 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-gray-50 border-gray-300 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange"
                 />
                 <button
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowNovaSenha(!showNovaSenha)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 dark:text-vertex-dark-muted hover:text-gray-600 transition-colors"
+                  className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 dark:text-vertex-dark-muted hover:text-gray-600 transition-colors"
                 >
                   {showNovaSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -563,7 +553,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                   }}
                   placeholder="••••••••••••"
                   maxLength={128}
-                  className={`w-full pl-10 pr-10 py-2 text-xs sm:text-sm rounded-lg border bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-colors ${
+                  className={`w-full pl-10 pr-10 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-colors ${
                     errors.confirmaNovaSenha 
                       ? 'border-red-500 bg-red-50/20' 
                       : (confirmaNovaSenha && novaSenha === confirmaNovaSenha)
@@ -585,40 +575,39 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
               )}
             </div>
 
-            {/* Checklist de Validação da Nova Senha */}
-            <div className="p-2.5 bg-gray-50 dark:bg-gray-800/60 rounded border border-gray-200 dark:border-gray-700 space-y-1 text-[11px]">
+            <div className="p-2.5 sm:p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg border border-gray-200 dark:border-gray-700 space-y-1.5 text-[11px]">
               <span className="font-semibold text-gray-800 dark:text-gray-200 block mb-0.5">
                 Requisitos da Nova Senha:
               </span>
-              <div className="grid grid-cols-2 gap-1 text-gray-500 dark:text-gray-400">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-gray-500 dark:text-gray-400">
                 <span className={`flex items-center gap-1 ${hasMinLength ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                  <Check className={`w-3 h-3 ${hasMinLength ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
+                  <Check className={`w-3 h-3 shrink-0 ${hasMinLength ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
                   Mín. 10 chars
                 </span>
                 <span className={`flex items-center gap-1 ${hasUpper ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                  <Check className={`w-3 h-3 ${hasUpper ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
+                  <Check className={`w-3 h-3 shrink-0 ${hasUpper ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
                   Maiúscula
                 </span>
                 <span className={`flex items-center gap-1 ${hasLower ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                  <Check className={`w-3 h-3 ${hasLower ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
+                  <Check className={`w-3 h-3 shrink-0 ${hasLower ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
                   Minúscula
                 </span>
                 <span className={`flex items-center gap-1 ${hasNumber ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                  <Check className={`w-3 h-3 ${hasNumber ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
+                  <Check className={`w-3 h-3 shrink-0 ${hasNumber ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
                   Número
                 </span>
                 <span className={`flex items-center gap-1 col-span-2 ${hasSpecial ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                  <Check className={`w-3 h-3 ${hasSpecial ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
+                  <Check className={`w-3 h-3 shrink-0 ${hasSpecial ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-300 dark:text-gray-600'}`} />
                   Caractere especial (!@#$*)
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1">
               <button
                 type="button"
                 onClick={() => setViewMode('forgot_request')}
-                className="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                className="flex items-center gap-1 py-1 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Alterar e-mail
@@ -627,7 +616,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                 type="button"
                 disabled={resendingCode}
                 onClick={handleResendRecoveryCode}
-                className="flex items-center gap-1 font-semibold text-vertex-orange hover:text-vertex-orange-hover transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 py-1 font-semibold text-vertex-orange hover:text-vertex-orange-hover transition-colors disabled:opacity-50"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${resendingCode ? 'animate-spin' : ''}`} />
                 Reenviar código
@@ -637,7 +626,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
             <button
               type="submit"
               disabled={loading || forgotCodigo.length !== 6 || !isNovaSenhaForte || novaSenha !== confirmaNovaSenha}
-              className="w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-lg bg-vertex-orange hover:bg-vertex-orange-hover text-white text-xs font-semibold transition-all shadow-sm disabled:opacity-50"
+              className="w-full min-h-[44px] py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-lg bg-vertex-orange hover:bg-vertex-orange-hover text-white text-xs sm:text-sm font-semibold transition-all shadow-sm disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -651,7 +640,6 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </form>
         )}
 
-        {/* Alternar para Cadastro */}
         {viewMode === 'login' && onSwitchToRegister && (
           <div className="mt-4 pt-3.5 border-t border-gray-100 dark:border-vertex-dark-border text-center">
             <p className="text-xs text-gray-500 dark:text-vertex-dark-muted">
@@ -659,7 +647,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
               <button
                 type="button"
                 onClick={onSwitchToRegister}
-                className="font-semibold text-vertex-orange hover:text-vertex-orange-hover transition-colors"
+                className="font-semibold text-vertex-orange hover:text-vertex-orange-hover transition-colors py-1 px-1"
               >
                 Criar conta
               </button>
@@ -667,11 +655,28 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           </div>
         )}
 
-        {/* Rodapé de Segurança do Card */}
-        <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-vertex-dark-border flex items-center justify-center gap-1.5 text-[10px] text-gray-500 dark:text-vertex-dark-muted">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span>Autenticação protegida via JWT HS256 & Rate Limiting</span>
+        <div className="mt-3.5 pt-3 border-t border-gray-100 dark:border-vertex-dark-border flex flex-col items-center justify-center gap-1.5 text-[10px] text-gray-500 dark:text-vertex-dark-muted text-center px-1">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span>Autenticação protegida via JWT HS256 & Rate Limiting</span>
+          </div>
+          <div>
+            <span>Ao acessar, você concorda com nossos </span>
+            <button
+              type="button"
+              onClick={() => setTermosOpen(true)}
+              className="text-vertex-orange hover:text-vertex-orange-hover hover:underline transition-colors font-medium"
+            >
+              Termos de Uso
+            </button>
+          </div>
         </div>
+
+        {/* Modal de Termos de Uso */}
+        <TermosUsoModal
+          isOpen={termosOpen}
+          onClose={() => setTermosOpen(false)}
+        />
       </div>
     </div>
   );

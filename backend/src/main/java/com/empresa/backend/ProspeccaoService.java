@@ -15,7 +15,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.text.Normalizer;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,18 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Serviço de Prospeccao e Enriquecimento 100% Dinâmico via APIs Web Externas.
- * Nenhuma informação fica pré-armazenada em código Java ou banco de dados.
- *
- * APIs 100% Web integradas em tempo de execução:
- * 1. OpenStreetMap (Overpass API) - Identificação geográfica, nós e tags cadastrais
- * 2. Tavily Search API - Descoberta oficial de CNPJ filtrando portais cadastrais brasileiros
- * 3. CNPJá Open API - Consulta oficial direta de CNPJ com extração de telefones (fixo e celular/WhatsApp) e e-mails
- * 4. OpenCNPJ API - API aberta baseada nos dados do BigQuery Público da Receita Federal
- * 5. Wikidata Entity API (Wikimedia Foundation) - Busca aberta global de website oficial e identificador fiscal
- * 6. Validador Módulo 11 (Java) - Validação matemática em tempo real de dígitos verificadores de CNPJ
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -49,7 +36,6 @@ public class ProspeccaoService {
     @Value("${app.tavily.api-key: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}")
     private String tavilyApiKey = "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";
 
-    // Servidores Overpass mundiais abertos e de alta disponibilidade
     private static final String[] OVERPASS_SERVERS = {
             "https://overpass.openstreetmap.fr/api/interpreter",
             "https://z.overpass-api.de/api/interpreter",
@@ -57,7 +43,6 @@ public class ProspeccaoService {
             "https://overpass-api.de/api/interpreter"
     };
 
-    // Endpoints oficiais das APIs públicas e gratuitas
     private static final String TAVILY_API_URL = "https://api.tavily.com/search";
     private static final String CNPJA_OPEN_API = "https://open.cnpja.com/office/";
     private static final String OPEN_CNPJ_API = "https://api.opencnpj.org/";
@@ -68,12 +53,10 @@ public class ProspeccaoService {
     private static final String BROWSER_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-    // Padrão regex para identificar números de CNPJ na web
     private static final Pattern CNPJ_PATTERN = Pattern.compile(
             "(\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2})|(\\b\\d{14}\\b)"
     );
 
-    // Bounding Box e cidades atendidas para enriquecimento geográfico
     private static final Set<String> TIPOS_IGNORADOS = Set.of(
             "fountain", "police", "fire_station", "townhall", "school", "bus_station", "library", "charging_station"
     );
@@ -83,9 +66,9 @@ public class ProspeccaoService {
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
-    // Defesa contra DoS: impede que o mesmo usuario execute multiplas buscas pesadas concorrentes
     private static final ConcurrentHashMap<String, Boolean> PROSPECCOES_ATIVAS = new ConcurrentHashMap<>();
 
+    // Prospecção via Overpass (OpenStreetMap)
     @Transactional
     public List<PesquisaResponse> prospectarEmpresasSemSite(String idUsuario) {
         if (idUsuario != null && PROSPECCOES_ATIVAS.putIfAbsent(idUsuario, Boolean.TRUE) != null) {
@@ -93,12 +76,10 @@ public class ProspeccaoService {
         }
 
         try {
-            // Remove registros legados com cidades não citadas
             limparPesquisasInvalidas(idUsuario);
 
             String bbox = "-25.68,-52.60,-25.25,-51.95";
 
-            // Consulta Overpass buscando nós e vias comerciais
             String query = """
                     [out:json][timeout:20];
                     (
@@ -153,7 +134,6 @@ public class ProspeccaoService {
                 log.warn("Nenhum servidor Overpass respondeu ou a busca não retornou novos dados.");
             }
 
-            // Prospecção cadastral oficial complementar para Porto Barreiro (cidade da comarca com baixa densidade no OSM)
             try {
                 int puxadasPortoBarreiro = prospectarCidadeEspecificaTavily(idUsuario, "Porto Barreiro", "PR");
                 log.info("Prospecção direcionada de Porto Barreiro concluída: {} novos estabelecimentos incorporados.", puxadasPortoBarreiro);
@@ -176,9 +156,6 @@ public class ProspeccaoService {
         }
     }
 
-    /**
-     * Higieniza registros que possuam cidades fora das 6 cidades citadas.
-     */
     public void limparPesquisasInvalidas(String idUsuario) {
         if (idUsuario == null) return;
         try {
@@ -208,12 +185,10 @@ public class ProspeccaoService {
             String tipo = tags.path("shop").asText(tags.path("amenity").asText(tags.path("craft").asText("")));
             if (TIPOS_IGNORADOS.contains(tipo)) continue;
 
-            // Se já foi salva na tabela EMPRESAS, não deve reaparecer
             if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nome)) {
                 continue;
             }
 
-            // Evita duplicar registros já salvos na tabela PESQUISAS
             if (pesquisaRepository.existsByIdUsuarioAndConsultaIgnoreCase(idUsuario, nome)) {
                 continue;
             }
@@ -221,10 +196,8 @@ public class ProspeccaoService {
             double lat = el.path("lat").asDouble(el.path("center").path("lat").asDouble(-25.4086));
             double lon = el.path("lon").asDouble(el.path("center").path("lon").asDouble(-52.4161));
             
-            // Identifica se pertence estritamente a uma das 6 cidades citadas
             CidadeHelper.CidadeInfo cidadeInfo = CidadeHelper.identificarCidade(lat, lon, tags.path("addr:city").asText(null));
             if (cidadeInfo == null) {
-                // Fora das 6 cidades citadas ou explicitamente de outro município vizinho
                 continue;
             }
 
@@ -236,18 +209,12 @@ public class ProspeccaoService {
             String categoria = CategoriaDetector.detectar(tags, nome);
             String horario = formatarHorario(tags.path("opening_hours").asText(null));
 
-            // =========================================================================================
-            // ETAPA 1: EXTRAÇÃO DIRETA DAS TAGS DO OPENSTREETMAP (100% DINÂMICA)
-            // =========================================================================================
             String telefoneOverpass = extrairTelefoneTags(tags, dddPadrao);
             String emailOverpass = extrairEmailTags(tags);
             String siteOverpass = extrairSiteTags(tags);
             String cnpjOverpass = extrairCnpjTags(tags);
             String wikidataId = tags.path("brand:wikidata").asText(tags.path("operator:wikidata").asText(null));
 
-            // =========================================================================================
-            // ETAPA 2: CONSULTA DINÂMICA À WIKIDATA API (OPEN SOURCE / WIKIMEDIA FOUNDATION)
-            // =========================================================================================
             Map<String, String> dadosWikidata = null;
             try {
                 if (wikidataId != null && !wikidataId.isBlank()) {
@@ -264,9 +231,6 @@ public class ProspeccaoService {
             String emailWikidata = dadosWikidata != null ? dadosWikidata.get("email") : null;
             String cnpjWikidata = dadosWikidata != null ? dadosWikidata.get("cnpj") : null;
 
-            // =========================================================================================
-            // ETAPA 3: DESCOBERTA DINÂMICA DE CNPJ VIA TAVILY SEARCH API COM VALIDAÇÃO MÓDULO 11
-            // =========================================================================================
             String cnpjCandidato = (cnpjWikidata != null) ? cnpjWikidata : cnpjOverpass;
             if (cnpjCandidato == null) {
                 try {
@@ -276,9 +240,6 @@ public class ProspeccaoService {
                 }
             }
 
-            // =========================================================================================
-            // ETAPA 4: EXTRAÇÃO OFICIAL EM TEMPO REAL VIA API CNPJÁ (+ BRASILAPI / MINHA RECEITA)
-            // =========================================================================================
             String emailOficial = null;
             String telefoneOficial = null;
             String razaoSocialOficial = null;
@@ -290,11 +251,9 @@ public class ProspeccaoService {
                     Map<String, String> dadosOficiais = consultarDadosCadastraisCompletos(cnpjFinal);
                     if (dadosOficiais != null) {
                         String cidadeCadastral = dadosOficiais.get("cidade");
-                        // Se a Receita Federal trouxer a cidade da empresa, ela DEVE ser uma das cidades citadas
                         if (cidadeCadastral != null && !cidadeCadastral.isBlank()) {
                             String cidNorm = CidadeHelper.normalizarCidade(cidadeCadastral);
                             if (cidNorm == null) {
-                                // O CNPJ encontrado pertence a empresa de outra cidade (ex: Curitiba, Cascavel, etc.)
                                 log.debug("Descartando CNPJ {} para '{}': cidade cadastral '{}' é fora da comarca", cnpjFinal, nome, cidadeCadastral);
                                 cnpjFinal = null;
                             } else {
@@ -313,9 +272,6 @@ public class ProspeccaoService {
                 }
             }
 
-            // =========================================================================================
-            // ETAPA 5: RESOLUÇÃO HIERÁRQUICA E PREENCHIMENTO DOS CANAIS
-            // =========================================================================================
             String telefoneFinal = resolverTelefone(telefoneOficial, telefoneWikidata, telefoneOverpass, dddPadrao);
             String emailFinal = resolverEmail(emailOficial, emailWikidata, emailOverpass);
             String siteFinal = resolverWebsite(siteWikidata, siteOverpass, telefoneFinal);
@@ -357,21 +313,13 @@ public class ProspeccaoService {
         log.info("Prospecção dinâmica concluída: {} estabelecimentos coletados e enriquecidos via APIs web.", processados);
     }
 
-    // ===========================================================================================
-    // INTEGRAÇÃO COM A API DO CNPJÁ (OPEN API PÚBLICA GRATUITA E SEM TOKEN)
-    // ===========================================================================================
-
-    /**
-     * Consulta cadastral oficial completa utilizando primeiramente a API pública do CNPJá,
-     * com fallback automático para BrasilAPI e Minha Receita.
-     */
+    // Consultas cadastrais de CNPJ (CNPJá, OpenCNPJ, BrasilAPI, Minha Receita)
     public Map<String, String> consultarDadosCadastraisCompletos(String cnpj) {
         String cnpjLimpo = cnpj.replaceAll("\\D", "");
         if (cnpjLimpo.length() != 14) return null;
 
         Map<String, String> dadosConsolidados = new LinkedHashMap<>();
 
-        // 1ª ETAPA: Consulta via API Aberta do CNPJá (open.cnpja.com) - Telefones fixo/celular e e-mails
         try {
             HttpRequest reqCnpja = HttpRequest.newBuilder()
                     .uri(URI.create(CNPJA_OPEN_API + cnpjLimpo))
@@ -394,8 +342,6 @@ public class ProspeccaoService {
             log.debug("CNPJá open API falhou para {}: {}", cnpjLimpo, e.getMessage());
         }
 
-        // 2ª ETAPA: Consulta via OpenCNPJ (api.opencnpj.org - baseada no BigQuery Público da Receita)
-        // Complementa campos ausentes ou atua como provedor primário de dados da Receita Federal
         if (!dadosConsolidados.containsKey("telefone") || !dadosConsolidados.containsKey("email") || !dadosConsolidados.containsKey("razaoSocial")) {
             try {
                 HttpRequest reqOpenCnpj = HttpRequest.newBuilder()
@@ -420,7 +366,6 @@ public class ProspeccaoService {
             }
         }
 
-        // 3ª ETAPA (FALLBACK): BrasilAPI (Comunidade Aberta)
         if (!dadosConsolidados.containsKey("telefone") || !dadosConsolidados.containsKey("email")) {
             try {
                 HttpRequest reqBrasilApi = HttpRequest.newBuilder()
@@ -443,7 +388,6 @@ public class ProspeccaoService {
             } catch (Exception ignored) {}
         }
 
-        // 4ª ETAPA (FALLBACK): Minha Receita (Open Source)
         if (!dadosConsolidados.containsKey("telefone") || !dadosConsolidados.containsKey("email")) {
             try {
                 HttpRequest reqMinhaReceita = HttpRequest.newBuilder()
@@ -468,25 +412,19 @@ public class ProspeccaoService {
         return dadosConsolidados.isEmpty() ? null : dadosConsolidados;
     }
 
-    /**
-     * Parser específico para a estrutura JSON retornada pela API do CNPJá
-     */
     private Map<String, String> extrairDadosCnpjaJson(JsonNode root) {
         Map<String, String> dados = new LinkedHashMap<>();
 
-        // Razão Social
         String razao = root.path("company").path("name").asText(null);
         if (razao != null && !razao.isBlank()) {
             dados.put("razaoSocial", razao.trim());
         }
 
-        // Nome Fantasia
         String alias = root.path("alias").asText(null);
         if (alias != null && !alias.isBlank()) {
             dados.put("nomeFantasia", alias.trim());
         }
 
-        // Telefones (CNPJá lista telefones LANDLINE e MOBILE com DDD e número)
         JsonNode phones = root.path("phones");
         if (phones.isArray() && phones.size() > 0) {
             String telFixo = null;
@@ -507,7 +445,6 @@ public class ProspeccaoService {
             dados.put("telefone", telMovel != null ? telMovel : telFixo);
         }
 
-        // E-mails (CNPJá retorna array de objetos com campo address)
         JsonNode emails = root.path("emails");
         if (emails.isArray() && emails.size() > 0) {
             for (JsonNode em : emails) {
@@ -519,7 +456,6 @@ public class ProspeccaoService {
             }
         }
 
-        // Endereço Cadastral Oficial
         JsonNode addr = root.path("address");
         String street = addr.path("street").asText("");
         String num = addr.path("number").asText("");
@@ -534,9 +470,6 @@ public class ProspeccaoService {
         return dados;
     }
 
-    /**
-     * Parser específico para a estrutura JSON retornada pela API do OpenCNPJ (baseada em BigQuery Público da Receita Federal)
-     */
     private Map<String, String> extrairDadosOpenCnpjJson(JsonNode root) {
         Map<String, String> dados = new LinkedHashMap<>();
 
@@ -555,7 +488,6 @@ public class ProspeccaoService {
             dados.put("email", email.toLowerCase().trim());
         }
 
-        // Telefones (OpenCNPJ retorna array de objetos: [ { ddd, numero, is_fax } ])
         JsonNode telefones = root.path("telefones");
         if (telefones.isArray() && telefones.size() > 0) {
             String telFixo = null;
@@ -644,10 +576,6 @@ public class ProspeccaoService {
         return dados;
     }
 
-    // ===========================================================================================
-    // CONSULTA PÚBLICA PARA O ENDPOINT REST GET /api/empresas/consultar-cnpj/{cnpj}
-    // ===========================================================================================
-
     public DadosCnpjResponse consultarCnpjPublico(String cnpj) {
         if (cnpj == null) return null;
         String limpo = cnpj.replaceAll("\\D", "");
@@ -673,10 +601,7 @@ public class ProspeccaoService {
         );
     }
 
-    // ===========================================================================================
-    // BUSCA DINÂMICA VIA WIKIDATA (WIKIMEDIA FOUNDATION)
-    // ===========================================================================================
-
+    // Integração Wikidata
     private Map<String, String> consultarWikidataPorId(String wikidataId) {
         try {
             String url = WIKIDATA_API + "?action=wbgetentities&ids=" + wikidataId + "&languages=pt&props=claims&format=json";
@@ -726,28 +651,24 @@ public class ProspeccaoService {
     private Map<String, String> extrairClaimsWikidata(JsonNode claims) {
         Map<String, String> map = new LinkedHashMap<>();
 
-        // P856 = website oficial
         JsonNode p856 = claims.path("P856");
         if (p856.isArray() && p856.size() > 0) {
             String site = p856.get(0).path("mainsnak").path("datavalue").path("value").asText(null);
             if (site != null && !site.isBlank()) map.put("website", site);
         }
 
-        // P1329 = número de telefone
         JsonNode p1329 = claims.path("P1329");
         if (p1329.isArray() && p1329.size() > 0) {
             String tel = p1329.get(0).path("mainsnak").path("datavalue").path("value").asText(null);
             if (tel != null && !tel.isBlank()) map.put("telefone", tel);
         }
 
-        // P968 = email
         JsonNode p968 = claims.path("P968");
         if (p968.isArray() && p968.size() > 0) {
             String email = p968.get(0).path("mainsnak").path("datavalue").path("value").asText(null);
             if (email != null && !email.isBlank()) map.put("email", email);
         }
 
-        // P3644 = identificador fiscal CNPJ
         JsonNode p3644 = claims.path("P3644");
         if (p3644.isArray() && p3644.size() > 0) {
             String cnpj = p3644.get(0).path("mainsnak").path("datavalue").path("value").asText(null);
@@ -757,10 +678,7 @@ public class ProspeccaoService {
         return map;
     }
 
-    // ===========================================================================================
-    // BUSCA PÚBLICA DINÂMICA VIA TAVILY SEARCH API (SEM CAPTCHA / DOMÍNIOS CADASTRAIS BRASILEIROS)
-    // ===========================================================================================
-
+    // Busca de CNPJ via Tavily Search API
     public String buscarCnpjViaTavily(String nome, String cidade, String estado) {
         if (tavilyApiKey == null || tavilyApiKey.isBlank()) return null;
 
@@ -821,20 +739,15 @@ public class ProspeccaoService {
         return null;
     }
 
-    // ===========================================================================================
-    // VALIDADOR DE DÍGITOS VERIFICADORES DO CNPJ (ALGORITMO MÓDULO 11 OFICIAL DO BRASIL)
-    // ===========================================================================================
-
+    // Validador de CNPJ (Módulo 11)
     public static boolean validarCnpj(String cnpj) {
         if (cnpj == null) return false;
         String limpo = cnpj.replaceAll("\\D", "");
         if (limpo.length() != 14) return false;
 
-        // Elimina sequências repetidas inválidas (ex: 00000000000000, 11111111111111)
         if (limpo.matches("(\\d)\\1{13}")) return false;
 
         try {
-            // 1º Dígito verificador
             int soma = 0;
             int peso = 5;
             for (int i = 0; i < 12; i++) {
@@ -845,7 +758,6 @@ public class ProspeccaoService {
             char dig1 = (r < 2) ? '0' : (char) ((11 - r) + '0');
             if (limpo.charAt(12) != dig1) return false;
 
-            // 2º Dígito verificador
             soma = 0;
             peso = 6;
             for (int i = 0; i < 13; i++) {
@@ -861,10 +773,7 @@ public class ProspeccaoService {
         }
     }
 
-    // ===========================================================================================
-    // EXTRATORES DE TAGS DO OPENSTREETMAP
-    // ===========================================================================================
-
+    // Extração e tratamento de dados das tags OSM
     private String extrairTelefoneTags(JsonNode tags, String dddPadrao) {
         String[] chaves = {"phone", "contact:phone", "contact:mobile", "contact:whatsapp", "whatsapp"};
         for (String c : chaves) {
@@ -920,10 +829,7 @@ public class ProspeccaoService {
         return null;
     }
 
-    // ===========================================================================================
-    // RESOLUÇÃO DE CONTATOS E FORMATAÇÃO
-    // ===========================================================================================
-
+    // Resolução de dados de contato
     private String resolverTelefone(String oficial, String doWikidata, String doOverpass, String dddPadrao) {
         if (oficial != null && !oficial.isBlank() && !oficial.equalsIgnoreCase("Não informado")) {
             return oficial;
@@ -957,7 +863,6 @@ public class ProspeccaoService {
         if (doOverpass != null && !doOverpass.isBlank()) {
             return doOverpass;
         }
-        // Se possui celular/WhatsApp mas não tem site próprio, gera canal direto de WhatsApp Web
         if (telefone != null && telefone.contains(")") && telefone.matches(".*9\\d{4}-?\\d{4}.*")) {
             String num = telefone.replaceAll("\\D", "");
             if (num.length() >= 10) {
@@ -1027,11 +932,7 @@ public class ProspeccaoService {
                 .replace("24/7", "Aberto 24 horas");
     }
 
-    /**
-     * Prospecção cadastral oficial dinâmica para cidades da comarca (como Porto Barreiro - PR),
-     * utilizando a Tavily Search API para busca de CNPJs em portais oficiais da Receita Federal e enriquecimento
-     * automático com dados cadastrais reais. Apenas as 6 cidades citadas são aceitas.
-     */
+    // Prospecção direcionada via Tavily
     public int prospectarCidadeEspecificaTavily(String idUsuario, String cidade, String estado) {
         String cidadeCanonica = CidadeHelper.normalizarCidade(cidade);
         if (cidadeCanonica == null) {
@@ -1122,12 +1023,10 @@ public class ProspeccaoService {
                         log.debug("Consulta cadastral para CNPJ {} falhou: {}", cnpj, ex.getMessage());
                     }
 
-                    // Validação estrita: a cidade do CNPJ DEVE ser uma das cidades citadas
                     String cidadeCadastral = dadosOficiais != null ? dadosOficiais.get("cidade") : null;
                     String cidadeNormalizada = CidadeHelper.normalizarCidade(cidadeCadastral != null ? cidadeCadastral : cidadeCanonica);
 
                     if (cidadeNormalizada == null) {
-                        // CNPJ retornado na busca pertence a outro município (ex: Curitiba, Cascavel, etc.)
                         log.info("Descartando CNPJ {} de {}: cidade cadastral '{}' na Receita não é uma cidade citada", cnpj, cidadeCanonica, cidadeCadastral);
                         continue;
                     }
@@ -1145,7 +1044,6 @@ public class ProspeccaoService {
 
                     nome = limparNomePreliminar(nome, cnpj);
 
-                    // Evita duplicatas se já existe em Empresas ou Pesquisas
                     if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nome) ||
                         pesquisaRepository.existsByIdUsuarioAndConsultaIgnoreCase(idUsuario, nome)) {
                         continue;
@@ -1211,13 +1109,11 @@ public class ProspeccaoService {
     private String limparNomePreliminar(String raw, String cnpj) {
         if (raw == null) return "";
         String nome = raw.trim();
-        // Remove sufixos como "- 51274888000191 Porto Barreiro" ou "| CNPJ ..."
         nome = nome.replaceAll("(?i)\\s*-\\s*\\d{14}.*", "");
         nome = nome.replaceAll("(?i)\\s*\\d{14}.*", "");
         nome = nome.replaceAll("(?i)\\s*\\|.*", "");
         nome = nome.replaceAll("(?i)\\s*-\\s*Porto Barreiro.*", "");
         nome = nome.replaceAll("(?i)\\s*Porto Barreiro.*", "");
-        // Remove prefixo de CNPJ (ex: "51.274.888 Victor Mazon" ou "68.860.607 Alexandre Kuster")
         nome = nome.replaceAll("^\\d{2}\\.\\d{3}\\.\\d{3}\\s*", "");
         nome = nome.replaceAll("^\\d{14}\\s*", "");
         return nome.trim();

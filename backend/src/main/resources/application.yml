@@ -50,8 +50,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 2MB           # Defesa contra Payload Bomb
-      max-request-size: 5MB
+      max-file-size: 5MB           # Limite de 5MB por imagem de perfil
+      max-request-size: 10MB
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -83,7 +83,7 @@ server:
     connection-timeout: 10000        # 10s timeout contra Slowloris
     keep-alive-timeout: 15000        # 15s keep-alive
     max-keep-alive-requests: 100     # previne sequestro indefinido de conexao keep-alive
-    max-swallow-size: 2MB            # limita descarte de bytes em excesso
+    max-swallow-size: 10MB           # limita descarte de bytes em excesso
     threads:
       max: 200                       # pool maximo de threads operacionais
       min-spare: 20                  # threads ociosas prontas para requisicoes
@@ -100,14 +100,14 @@ app:
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}
     rate-limit:
-      auth-capacity: 10              # tentativas max por janela
+      auth-capacity: ${RATE_LIMIT_AUTH_CAPACITY:50}              # tentativas max por janela
       auth-refill-minutes: 1
-      api-capacity: 120              # requisicoes gerais por minuto
+      api-capacity: ${RATE_LIMIT_API_CAPACITY:600}              # requisicoes gerais por minuto
       api-refill-minutes: 1
-      prospeccao-capacity: 3         # max 3 buscas na regiao a cada 5 minutos por IP
-      prospeccao-refill-minutes: 5
-      max-concurrent-requests: 30    # max requisicoes ativas simultaneas por IP
-      jail-minutes: 3                # tempo de quarentena temporaria para atacantes repetitivos
+      prospeccao-capacity: ${RATE_LIMIT_PROSPECCAO_CAPACITY:60}         # max 3 buscas na regiao a cada 5 minutos por IP
+      prospeccao-refill-minutes: ${RATE_LIMIT_PROSPECCAO_REFILL_MINUTES:1}
+      max-concurrent-requests: ${RATE_LIMIT_MAX_CONCURRENT:100}    # max requisicoes ativas simultaneas por IP
+      jail-minutes: ${RATE_LIMIT_JAIL_MINUTES:1}                # tempo de quarentena temporaria para atacantes repetitivos
   tavily:
     api-key: ${TAVILY_API_KEY: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}
 

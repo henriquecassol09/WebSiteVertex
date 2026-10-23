@@ -20,6 +20,20 @@ export const AuthProvider = ({ children }) => {
     return isOnline && isDbConnected;
   }, []);
 
+  const carregarUsuario = useCallback(async () => {
+    try {
+      const dados = await api.auth.me();
+      if (dados) {
+        setUser(dados);
+        localStorage.setItem('vertex_usuario', JSON.stringify(dados));
+        return dados;
+      }
+    } catch {
+      // Falha silenciosa se desconectado
+    }
+    return null;
+  }, []);
+
   useEffect(() => {
     const initAuth = async () => {
       await checkConnection();
@@ -32,6 +46,11 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('vertex_usuario');
         }
       }
+
+      if (tokenStorage.getAccessToken()) {
+        await carregarUsuario();
+      }
+
       setLoading(false);
     };
 
@@ -39,10 +58,20 @@ export const AuthProvider = ({ children }) => {
 
     const interval = setInterval(checkConnection, 30000);
     return () => clearInterval(interval);
-  }, [checkConnection]);
+  }, [checkConnection, carregarUsuario]);
 
   const login = async (email, senha) => {
     const res = await api.auth.login({ email, senha });
+    try {
+      const dadosUsuario = await api.auth.me();
+      if (dadosUsuario) {
+        setUser(dadosUsuario);
+        localStorage.setItem('vertex_usuario', JSON.stringify(dadosUsuario));
+        return res;
+      }
+    } catch {
+      // Continua com fallback
+    }
     const userData = {
       email,
       nome: email.split('@')[0],
@@ -52,19 +81,69 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
-  const register = async (nome, email, senha) => {
-    const res = await api.auth.registrar({ nome, email, senha });
+  const register = async (nome, email, senha, aceitouTermos = true) => {
+    const res = await api.auth.registrar({ nome, email, senha, aceitouTermos });
     return res;
   };
 
   const confirmRegister = async (email, codigo, nome) => {
     const res = await api.auth.verificarCodigoCadastro({ email, codigo });
+    try {
+      const dadosUsuario = await api.auth.me();
+      if (dadosUsuario) {
+        setUser(dadosUsuario);
+        localStorage.setItem('vertex_usuario', JSON.stringify(dadosUsuario));
+        return res;
+      }
+    } catch {
+      // Continua com fallback
+    }
     const userData = {
       nome: nome || email.split('@')[0],
       email,
     };
     setUser(userData);
     localStorage.setItem('vertex_usuario', JSON.stringify(userData));
+    return res;
+  };
+
+  const alterarSenha = async (senhaAtual, novaSenha) => {
+    const res = await api.auth.alterarSenha({ senhaAtual, novaSenha });
+    return res;
+  };
+
+  const atualizarFoto = async (fotoUrl) => {
+    const res = await api.auth.atualizarFoto(fotoUrl);
+    if (res) {
+      setUser(res);
+      localStorage.setItem('vertex_usuario', JSON.stringify(res));
+    }
+    return res;
+  };
+
+  const uploadFoto = async (file, fallbackDataUrl = null) => {
+    const res = await api.auth.uploadFoto(file, fallbackDataUrl);
+    if (res) {
+      setUser(res);
+      localStorage.setItem('vertex_usuario', JSON.stringify(res));
+    }
+    return res;
+  };
+
+  const removerFoto = async () => {
+    const res = await api.auth.removerFoto();
+    if (res) {
+      setUser(res);
+      localStorage.setItem('vertex_usuario', JSON.stringify(res));
+    }
+    return res;
+  };
+
+  const deletarConta = async (senha) => {
+    const res = await api.auth.deletarConta({ senha });
+    tokenStorage.clear();
+    localStorage.removeItem('vertex_usuario');
+    setUser(null);
     return res;
   };
 
@@ -91,9 +170,15 @@ export const AuthProvider = ({ children }) => {
         databaseConnected,
         healthStatus,
         checkConnection,
+        carregarUsuario,
         login,
         register,
         confirmRegister,
+        alterarSenha,
+        atualizarFoto,
+        uploadFoto,
+        removerFoto,
+        deletarConta,
         logout,
         logoutTodasSessoes,
         isAuthenticated: !!user,

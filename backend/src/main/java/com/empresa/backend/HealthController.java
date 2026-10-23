@@ -12,10 +12,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Endpoint de diagnóstico e integridade ("Health Check") funcional.
- * Testa a integridade da aplicação e a conectividade física com o PostgreSQL (Neon Serverless).
- */
+// Health Check do sistema e conectividade com banco de dados
 @RestController
 @RequestMapping("/api/health")
 @RequiredArgsConstructor
@@ -30,7 +27,6 @@ public class HealthController {
         response.put("timestamp", Instant.now().toString());
 
         try {
-            // Executa ping físico no banco de dados via query padrão leve
             Integer ping = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
             if (ping != null && ping == 1) {
                 response.put("database", "CONNECTED");

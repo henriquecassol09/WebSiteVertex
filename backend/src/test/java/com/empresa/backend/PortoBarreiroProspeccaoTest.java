@@ -80,22 +80,18 @@ class PortoBarreiroProspeccaoTest {
     void deveSanitizarNomesPreliminaresDePortoBarreiro() {
         ProspeccaoService service = new ProspeccaoService(null, null, new com.fasterxml.jackson.databind.ObjectMapper());
 
-        // Victor Mazon
         String raw1 = "51.274.888 Victor Mazon - 51274888000191 Porto Barreiro";
         String limpo1 = invocarLimpeza(service, raw1, "51274888000191");
         assertEquals("Victor Mazon", limpo1);
 
-        // Alexandre Kuster
         String raw2 = "68.860.607 Alexandre Kuster - Porto Barreiro";
         String limpo2 = invocarLimpeza(service, raw2, "68860607000185");
         assertEquals("Alexandre Kuster", limpo2);
 
-        // Academia On Fit
         String raw3 = "Academia On Fit LTDA - 67524321000166 Porto Barreiro";
         String limpo3 = invocarLimpeza(service, raw3, "67524321000166");
         assertEquals("Academia On Fit LTDA", limpo3);
 
-        // Tico Materiais de Construção
         String raw4 = "Tico Materiais de Construcao 07828736000282 Porto Barreiro";
         String limpo4 = invocarLimpeza(service, raw4, "07828736000282");
         assertEquals("Tico Materiais de Construcao", limpo4);

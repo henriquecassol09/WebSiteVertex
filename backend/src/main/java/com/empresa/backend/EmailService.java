@@ -9,10 +9,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-/**
- * Serviço de E-mail Oficial com Spring Mail (JavaMailSender / Gmail SMTP).
- * Utiliza o protocolo SMTP autenticado via TLS para entrega real de mensagens.
- */
 @Service
 public class EmailService {
 

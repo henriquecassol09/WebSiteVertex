@@ -20,7 +20,6 @@ class DosDefenseTest {
     @BeforeEach
     void setUp() {
         dosDefenseFilter = new DosDefenseFilter();
-        // Parametros para teste rapido
         ReflectionTestUtils.setField(dosDefenseFilter, "authCapacity", 3);
         ReflectionTestUtils.setField(dosDefenseFilter, "authRefillMinutes", 1);
         ReflectionTestUtils.setField(dosDefenseFilter, "prospeccaoCapacity", 2);
@@ -51,7 +50,7 @@ class DosDefenseTest {
     void deveBloquearPayloadBomb() throws ServletException, IOException {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/empresas");
         request.setRemoteAddr("192.168.1.101");
-        request.addHeader("Content-Length", String.valueOf(10 * 1024 * 1024L)); // 10MB
+        request.addHeader("Content-Length", String.valueOf(10 * 1024 * 1024L));
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain filterChain = new MockFilterChain();
 
@@ -66,7 +65,6 @@ class DosDefenseTest {
     void deveAcionarRateLimitAuth() throws ServletException, IOException {
         String ip = "192.168.1.102";
 
-        // Consome as 3 fichas do bucket de auth
         for (int i = 0; i < 3; i++) {
             MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");
             request.setRemoteAddr(ip);
@@ -75,7 +73,6 @@ class DosDefenseTest {
             assertEquals(200, response.getStatus());
         }
 
-        // 4a requisicao deve ser barrada com 429
         MockHttpServletRequest requestBloqueada = new MockHttpServletRequest("POST", "/api/auth/login");
         requestBloqueada.setRemoteAddr(ip);
         MockHttpServletResponse responseBloqueada = new MockHttpServletResponse();
@@ -91,7 +88,6 @@ class DosDefenseTest {
     void deveAplicarCotaProspeccao() throws ServletException, IOException {
         String ip = "192.168.1.103";
 
-        // Cota de prospeccao = 2
         for (int i = 0; i < 2; i++) {
             MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/pesquisas/prospectar-regiao");
             request.setRemoteAddr(ip);
@@ -100,7 +96,6 @@ class DosDefenseTest {
             assertEquals(200, response.getStatus());
         }
 
-        // 3a requisicao de prospeccao no mesmo minuto deve ser barrada
         MockHttpServletRequest requestBloqueada = new MockHttpServletRequest("POST", "/api/pesquisas/prospectar-regiao");
         requestBloqueada.setRemoteAddr(ip);
         MockHttpServletResponse responseBloqueada = new MockHttpServletResponse();
@@ -114,14 +109,12 @@ class DosDefenseTest {
     void deveColocarEmQuarentenaAposViolacoesConsecutivas() throws ServletException, IOException {
         String ip = "192.168.1.104";
 
-        // Esgota o bucket (3 tokens)
         for (int i = 0; i < 3; i++) {
             MockHttpServletRequest req = new MockHttpServletRequest("POST", "/api/auth/login");
             req.setRemoteAddr(ip);
             dosDefenseFilter.doFilterInternal(req, new MockHttpServletResponse(), new MockFilterChain());
         }
 
-        // Gera 5 violacoes de 429 para ativar o Jail
         for (int i = 0; i < 5; i++) {
             MockHttpServletRequest req = new MockHttpServletRequest("POST", "/api/auth/login");
             req.setRemoteAddr(ip);
@@ -130,7 +123,6 @@ class DosDefenseTest {
             assertEquals(429, res.getStatus());
         }
 
-        // Agora, mesmo uma requisicao para rota geral comum deve ser descartada imediatamente pelo Jail
         MockHttpServletRequest reqJail = new MockHttpServletRequest("GET", "/api/empresas");
         reqJail.setRemoteAddr(ip);
         MockHttpServletResponse resJail = new MockHttpServletResponse();

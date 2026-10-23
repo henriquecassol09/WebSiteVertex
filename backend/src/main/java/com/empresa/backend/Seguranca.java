@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Principal do Spring Security representando o usuario autenticado via JWT. */
+// Usuário autenticado (Spring Security)
 @Getter
 class SecurityUser implements UserDetails {
 
@@ -51,7 +51,7 @@ class SecurityUser implements UserDetails {
     }
 
     @Override
-    public String getPassword() { return null; } // autenticacao via JWT, senha nao e usada aqui
+    public String getPassword() { return null; }
 
     @Override
     public String getUsername() { return idUsuario; }
@@ -66,11 +66,7 @@ class SecurityUser implements UserDetails {
     public boolean isEnabled() { return true; }
 }
 
-/**
- * Emissao/validacao de access tokens JWT de curta duracao.
- * Refresh tokens NAO sao JWT: sao valores aleatorios opacos, com o hash
- * persistido na tabela SESSAO (rotacao a cada uso) — ver AuthService.
- */
+// Emissão e validação de tokens JWT
 @Component
 class JwtService {
 
@@ -138,7 +134,7 @@ class JwtService {
     }
 }
 
-/** Le o header Authorization: Bearer, valida o JWT, checa blacklist e popula o SecurityContext. */
+// Filtro de autenticação JWT
 @Component
 @RequiredArgsConstructor
 class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -161,7 +157,6 @@ class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = header.substring(7);
 
-        // Se o token estiver na blacklist (ex: usuario fez logout ou trocou de senha), rejeita imediatamente
         if (accessControlDefense.isTokenRevogado(token)) {
             SecurityContextHolder.clearContext();
             filterChain.doFilter(request, response);
@@ -185,7 +180,7 @@ class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 }
 
-/** Utilitario para obter o id do usuario autenticado a partir do contexto de seguranca. */
+// Utilitário de autenticação
 final class AutenticacaoUtil {
 
     private AutenticacaoUtil() {}

@@ -55,12 +55,10 @@ class CidadeHelperTest {
     @Test
     @DisplayName("Deve identificar cidade por coordenadas quando dentro do raio geográfico")
     void deveIdentificarCidadePorCoordenadas() {
-        // Coordenadas centrais de Laranjeiras do Sul (-25.4086, -52.4161)
         CidadeHelper.CidadeInfo info = CidadeHelper.identificarCidade(-25.4090, -52.4170, null);
         assertNotNull(info);
         assertEquals("Laranjeiras do Sul", info.nome());
 
-        // Coordenadas de Porto Barreiro (-25.5469, -52.4078)
         CidadeHelper.CidadeInfo infoPb = CidadeHelper.identificarCidade(-25.5470, -52.4080, null);
         assertNotNull(infoPb);
         assertEquals("Porto Barreiro", infoPb.nome());
@@ -69,7 +67,6 @@ class CidadeHelperTest {
     @Test
     @DisplayName("Deve rejeitar ponto geográfico se addr:city for de cidade vizinha não citada")
     void deveRejeitarQuandoAddrCityForDeOutraCidade() {
-        // Mesmo que a coordenada caia perto, se o endereço explicitamente diz "Marquinho", rejeita!
         CidadeHelper.CidadeInfo info = CidadeHelper.identificarCidade(-25.4086, -52.4161, "Marquinho");
         assertNull(info);
 
@@ -80,7 +77,6 @@ class CidadeHelperTest {
     @Test
     @DisplayName("Deve rejeitar coordenadas muito distantes de qualquer centro citado")
     void deveRejeitarCoordenadasForaDoRaio() {
-        // Coordenada em Guarapuava (-25.3953, -51.4625) ~100 km a leste
         CidadeHelper.CidadeInfo infoLonge = CidadeHelper.identificarCidade(-25.3953, -51.4625, null);
         assertNull(infoLonge);
     }

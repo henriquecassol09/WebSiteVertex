@@ -5,11 +5,6 @@ import lombok.*;
 import java.time.Instant;
 import java.util.UUID;
 
-// Todas as entidades JPA do dominio, agrupadas em um unico arquivo por
-// conveniencia. Nenhuma classe publica aqui: no mesmo pacote, visibilidade
-// "package-private" (sem modificador) e suficiente para uso por
-// repository/service/controller, que estao no mesmo pacote.
-
 @Entity
 @Table(name = "USUARIO")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder

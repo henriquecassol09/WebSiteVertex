@@ -9,6 +9,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -24,11 +26,17 @@ class AuthService {
     private final ContaRepository contaRepository;
     private final SessaoRepository sessaoRepository;
     private final VerificacaoRepository verificacaoRepository;
+    private final PesquisaRepository pesquisaRepository;
+    private final EmpresaRepository empresaRepository;
+    private final PropostaRepository propostaRepository;
+    private final VersaoPropostaRepository versaoPropostaRepository;
+    private final NotaEmpresaRepository notaEmpresaRepository;
     private final EmailService emailService;
     private final EmailValidatorService emailValidatorService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AccessControlDefense accessControlDefense;
+    private final FotoUrlSecurityService fotoUrlSecurityService;
 
     @Value("${app.security.jwt.access-token-minutes}")
     private long accessTokenMinutes;
@@ -43,35 +51,33 @@ class AuthService {
 
     @Transactional
     RegistrarResponse registrar(RegistrarRequest req) {
+        if (req.aceitouTermos() == null || !req.aceitouTermos()) {
+            throw new BusinessException("É obrigatório concordar com os Termos de Uso para criar uma conta.");
+        }
+
         String emailNormalizado = req.email().trim().toLowerCase();
 
-        // 1. Validação Open-Source profunda de e-mail (sintaxe, DNS MX e domínios descartáveis)
         EmailValidatorService.ResultadoValidacao validacao = emailValidatorService.validarEmail(emailNormalizado);
         if (!validacao.valido()) {
             throw new BusinessException(validacao.mensagem());
         }
 
-        // 2. Se já existir conta verificada com este e-mail, impede cadastro duplicado
         Optional<Usuario> existenteOpt = usuarioRepository.findByEmailIgnoreCase(emailNormalizado);
         if (existenteOpt.isPresent()) {
             Usuario existente = existenteOpt.get();
             if (existente.isEmailVerificado()) {
                 throw new BusinessException("Este e-mail já está cadastrado. Faça login na sua conta.");
             } else {
-                // Limpa registro pendente antigo se houver
                 contaRepository.findByIdUsuarioAndIdProvedor(existente.getIdUsuario(), PROVEDOR_CREDENCIAIS)
                         .ifPresent(contaRepository::delete);
                 usuarioRepository.delete(existente);
             }
         }
 
-        // 3. NÃO salva Usuario nem Conta no banco aqui!
-        // Salva apenas a intenção de cadastro com código de 6 dígitos temporário (15 min)
         String codigo = HashUtil.gerarCodigoNumerico(6);
         String valor = codigo + "||" + req.nome().trim() + "||" + passwordEncoder.encode(req.senha());
         salvarCodigoVerificacao("CADASTRO:" + emailNormalizado, valor);
 
-        // 4. Dispara o e-mail com o código de segurança
         emailService.enviarCodigoVerificacao(emailNormalizado, req.nome().trim(), codigo);
 
         return RegistrarResponse.of(true, emailNormalizado, "Código de confirmação enviado para seu e-mail. Digite o código para concluir seu cadastro.");
@@ -102,7 +108,6 @@ class AuthService {
 
         accessControlDefense.registrarSucessoOtp(identificador);
 
-        // SOMENTE AGORA o usuário e a conta são oficialmente criados no banco de dados!
         Usuario usuario = Usuario.builder()
                 .nome(nome)
                 .email(emailNormalizado)
@@ -120,7 +125,6 @@ class AuthService {
             contaRepository.save(conta);
         }
 
-        // Remove a verificação utilizada
         verificacaoRepository.delete(verificacao);
 
         return emitirTokens(usuario, httpReq);
@@ -160,7 +164,6 @@ class AuthService {
         String emailNormalizado = req.email().trim().toLowerCase();
         String ip = httpReq != null ? clientIp(httpReq) : "127.0.0.1";
 
-        // Defesa contra Forca Bruta / Credential Stuffing: verifica se a conta ou o IP estao em lockout
         accessControlDefense.verificarBloqueioLogin(emailNormalizado, ip);
 
         Optional<Usuario> usuarioOpt = usuarioRepository.findByEmailIgnoreCase(emailNormalizado);
@@ -189,7 +192,6 @@ class AuthService {
             throw new EmailNaoVerificadoException("Seu e-mail ainda não foi verificado. Enviamos um código para " + emailNormalizado + ".");
         }
 
-        // Sucesso na autenticacao: reseta qualquer tentativa falha anterior
         accessControlDefense.registrarSucessoLogin(emailNormalizado, ip);
         return emitirTokens(usuario, httpReq);
     }
@@ -260,7 +262,6 @@ class AuthService {
         conta.setSenha(passwordEncoder.encode(req.novaSenha()));
         contaRepository.save(conta);
 
-        // Revoga todas as outras sessoes ativas no banco de dados para seguranca da conta
         sessaoRepository.revogarTodasDoUsuario(idUsuario);
 
         return MensagemResponse.of("Senha alterada com sucesso! Suas outras sessoes foram encerradas.");
@@ -282,8 +283,6 @@ class AuthService {
 
         Optional<Sessao> sessaoAtivaOpt = sessaoRepository.findByTokenAndRevogadaFalse(hash);
         if (sessaoAtivaOpt.isEmpty()) {
-            // Defesa contra Session Hijacking / Replay: se o token já foi revogado e está sendo reusado,
-            // desconecta imediatamente todas as sessoes ativas deste usuario por violacao de integridade.
             sessaoRepository.findByToken(hash).ifPresent(s -> {
                 sessaoRepository.revogarTodasDoUsuario(s.getIdUsuario());
                 throw new AutenticacaoException("Tentativa de reutilizacao de sessao revogada detectada. Todas as sessoes ativas foram desconectadas por seguranca.");
@@ -297,8 +296,6 @@ class AuthService {
             throw new AutenticacaoException("Sessao invalida ou expirada");
         }
 
-        // Rotacao: a sessao usada e sempre revogada, mesmo em caso de sucesso,
-        // e uma nova e emitida. Reuso de um refresh token ja usado e bloqueado.
         sessaoRepository.revogarPorId(sessao.getIdSessao());
 
         Usuario usuario = usuarioRepository.findById(sessao.getIdUsuario())
@@ -328,6 +325,68 @@ class AuthService {
             accessControlDefense.revogarTokenJwt(token, jwtService.extrairExpiracao(token));
         }
         sessaoRepository.revogarTodasDoUsuario(idUsuario);
+    }
+
+    @Transactional(readOnly = true)
+    UsuarioResponse obterUsuarioAtual(String idUsuario) {
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+        return UsuarioResponse.of(usuario);
+    }
+
+    @Transactional
+    UsuarioResponse atualizarFoto(String idUsuario, AtualizarFotoRequest req) {
+        accessControlDefense.verificarLimiteAtualizacaoFoto(idUsuario);
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        String fotoUrl = req != null && req.fotoUrl() != null ? req.fotoUrl().trim() : null;
+        if (fotoUrl != null && !fotoUrl.isEmpty()) {
+            fotoUrlSecurityService.validarUrlFotoSegura(fotoUrl);
+            usuario.setImagem(fotoUrl);
+        } else {
+            usuario.setImagem(null);
+        }
+
+        Usuario salvo = usuarioRepository.save(usuario);
+        return UsuarioResponse.of(salvo);
+    }
+
+    @Transactional
+    UsuarioResponse uploadFoto(String idUsuario, MultipartFile file) {
+        accessControlDefense.verificarLimiteAtualizacaoFoto(idUsuario);
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        String dataUri = fotoUrlSecurityService.processarUploadFotoSegura(file);
+        usuario.setImagem(dataUri);
+        Usuario salvo = usuarioRepository.save(usuario);
+        return UsuarioResponse.of(salvo);
+    }
+
+    @Transactional
+    void deletarConta(String idUsuario, DeletarContaRequest req, String authHeader) {
+        Usuario usuario = usuarioRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        if (req != null && req.senha() != null && !req.senha().isBlank()) {
+            Conta conta = contaRepository.findByIdUsuarioAndIdProvedor(idUsuario, PROVEDOR_CREDENCIAIS)
+                    .orElse(null);
+            if (conta != null && conta.getSenha() != null && !passwordEncoder.matches(req.senha(), conta.getSenha())) {
+                throw new BusinessException("Senha incorreta. Não foi possível deletar a conta.");
+            }
+        }
+
+        logoutTodasSessoes(idUsuario, authHeader);
+
+        notaEmpresaRepository.deleteByIdUsuario(idUsuario);
+        versaoPropostaRepository.deleteByIdUsuario(idUsuario);
+        propostaRepository.deleteByIdUsuario(idUsuario);
+        empresaRepository.deleteByIdUsuario(idUsuario);
+        pesquisaRepository.deleteByIdUsuario(idUsuario);
+        sessaoRepository.deleteByIdUsuario(idUsuario);
+        contaRepository.deleteByIdUsuario(idUsuario);
+        usuarioRepository.delete(usuario);
     }
 
     private AuthResponse emitirTokens(Usuario usuario, HttpServletRequest httpReq) {
@@ -392,7 +451,6 @@ class PesquisaService {
     }
 
     private Pesquisa buscarEntidade(String idUsuario, String idPesquisa) {
-        // Busca sempre filtrada por idUsuario: garante isolamento entre usuarios (multi-tenancy)
         return pesquisaRepository.findByIdPesquisaAndIdUsuario(idPesquisa, idUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Pesquisa nao encontrada"));
     }
@@ -409,7 +467,6 @@ class EmpresaService {
     EmpresaResponse criar(String idUsuario, EmpresaRequest req) {
         String nomeTrim = req.nome().trim();
 
-        // Não permitir salvar uma empresa duas vezes
         if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nomeTrim)) {
             throw new IllegalArgumentException("Esta empresa já foi salva no sistema");
         }
@@ -481,7 +538,6 @@ class PropostaService {
 
     @Transactional
     PropostaResponse criar(String idUsuario, PropostaRequest req) {
-        // Garante que a empresa referenciada tambem pertence ao usuario autenticado
         Empresa empresa = empresaRepository.findByIdEmpresaAndIdUsuario(req.idEmpresa(), idUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Empresa nao encontrada"));
 
@@ -567,7 +623,6 @@ class NotaEmpresaService {
 
     @Transactional
     void excluir(String idUsuario, String idEmpresa, String idNota) {
-        // Defesa contra IDOR / BOLA: valida simultaneamente idNota, idEmpresa e idUsuario
         NotaEmpresa nota = notaEmpresaRepository.findByIdNotaEmpresaAndIdEmpresaAndIdUsuario(idNota, idEmpresa, idUsuario)
                 .orElseThrow(() -> new ResourceNotFoundException("Nota nao encontrada para a empresa informada"));
         notaEmpresaRepository.delete(nota);

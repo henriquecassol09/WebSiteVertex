@@ -9,18 +9,11 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Serviços integrados de Defesa contra Quebra de Autenticação e Controle de Acesso (OWASP A01 e A07).
- *
- * 1. LoginAttemptService: Bloqueia ataques de força bruta e credential stuffing via Account Lockout temporário.
- * 2. OtpAttemptService: Bloqueia ataques de força bruta contra códigos numéricos OTP de 6 dígitos.
- * 3. TokenBlacklistService: Invalidação instantânea de tokens JWT no logout ou troca de senha (Session Revocation).
- */
 @Slf4j
 @Service
 public class AccessControlDefense {
 
-    // === 1. CONTROLE DE TENTATIVAS DE LOGIN E BLOQUEIO DE CONTA (ACCOUNT LOCKOUT) ===
+    // Bloqueio de login por tentativas
     private static final int MAX_LOGIN_ATTEMPTS = 5;
     private static final Duration LOCKOUT_DURATION = Duration.ofMinutes(15);
 
@@ -87,7 +80,7 @@ public class AccessControlDefense {
         contasBloqueadas.remove("email:" + email.toLowerCase().trim());
     }
 
-    // === 2. PROTECAO CONTRA FORCA BRUTA EM CODIGOS OTP DE 6 DIGITOS ===
+    // Proteção OTP
     private static final int MAX_OTP_ATTEMPTS = 5;
     private final ConcurrentHashMap<String, AtomicInteger> tentativasOtpPorIdentificador = new ConcurrentHashMap<>();
 
@@ -107,7 +100,7 @@ public class AccessControlDefense {
         tentativasOtpPorIdentificador.remove(identificador);
     }
 
-    // === 3. LISTA NEGRA DE TOKENS JWT (REVOGACAO IMEDIATA DE SESSOES NO LOGOUT) ===
+    // Blacklist JWT
     private final ConcurrentHashMap<String, Instant> tokenBlacklist = new ConcurrentHashMap<>();
 
     public void revogarTokenJwt(String token, Instant expiraEm) {
@@ -128,13 +121,33 @@ public class AccessControlDefense {
         return true;
     }
 
-    /**
-     * Limpeza periodica a cada 10 minutos para evitar crescimento indefinido da memoria.
-     */
+    // Rate limiting para atualização de foto de perfil (Defesa anti-DoS e anti-spam)
+    private final ConcurrentHashMap<String, AtomicInteger> updatesFotoPorUsuario = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Instant> janelasFotoPorUsuario = new ConcurrentHashMap<>();
+
+    public void verificarLimiteAtualizacaoFoto(String idUsuario) {
+        if (idUsuario == null) return;
+        Instant agora = Instant.now();
+        Instant janela = janelasFotoPorUsuario.compute(idUsuario, (k, v) -> {
+            if (v == null || agora.isAfter(v)) {
+                updatesFotoPorUsuario.put(idUsuario, new AtomicInteger(0));
+                return agora.plus(Duration.ofMinutes(5));
+            }
+            return v;
+        });
+
+        int tentativas = updatesFotoPorUsuario.computeIfAbsent(idUsuario, k -> new AtomicInteger(0)).incrementAndGet();
+        if (tentativas > 10) {
+            log.warn("Excesso de atualizacoes de foto para usuario {}. Bloqueio temporario.", idUsuario);
+            throw new BusinessException("Muitas atualizações de foto recentes. Por favor, aguarde alguns minutos.");
+        }
+    }
+
     @Scheduled(fixedRate = 600000)
     public void limparCadastrosExpirados() {
         Instant agora = Instant.now();
         contasBloqueadas.entrySet().removeIf(e -> agora.isAfter(e.getValue()));
         tokenBlacklist.entrySet().removeIf(e -> agora.isAfter(e.getValue()));
+        janelasFotoPorUsuario.entrySet().removeIf(e -> agora.isAfter(e.getValue()));
     }
 }

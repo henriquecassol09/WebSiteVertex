@@ -73,13 +73,12 @@ export const EmpresasView = () => {
   const [termoBusca, setTermoBusca] = useState('');
   const [filtroTexto, setFiltroTexto] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
-  const [filtroCidades, setFiltroCidades] = useState([]); // Array de cidades selecionadas (multi-seleção)
-  const [filtroWebsite, setFiltroWebsite] = useState('todos'); // 'todos' | 'com' | 'sem'
-  const [filtroTelefone, setFiltroTelefone] = useState('todos'); // 'todos' | 'com' | 'sem'
-  const [filtroEmail, setFiltroEmail] = useState('todos'); // 'todos' | 'com' | 'sem'
+  const [filtroCidades, setFiltroCidades] = useState([]);
+  const [filtroWebsite, setFiltroWebsite] = useState('todos');
+  const [filtroTelefone, setFiltroTelefone] = useState('todos');
+  const [filtroEmail, setFiltroEmail] = useState('todos');
   const [showToast, setShowToast] = useState(false);
 
-  // Auto-dispensar o toast após 3.5 segundos
   useEffect(() => {
     if (showToast) {
       const timer = setTimeout(() => {
@@ -214,7 +213,6 @@ export const EmpresasView = () => {
   const empresasFiltradas = empresas.filter((emp) => {
     const cat = detectarCategoria(emp.categoria, emp.nome);
 
-    // 1. Termo de busca textual
     if (filtroTexto.trim() !== '') {
       const termo = filtroTexto.toLowerCase().trim();
       const matchTexto =
@@ -228,12 +226,10 @@ export const EmpresasView = () => {
       if (!matchTexto) return false;
     }
 
-    // 2. Categoria (mantendo o filtro atual)
     if (filtroCategoria !== '' && cat !== filtroCategoria) {
       return false;
     }
 
-    // 3. Cidades (Multi-seleção)
     if (filtroCidades.length > 0) {
       const matchCidade = filtroCidades.some((c) => {
         const cLow = c.toLowerCase().trim();
@@ -245,12 +241,10 @@ export const EmpresasView = () => {
       if (!matchCidade) return false;
     }
 
-    // 4. Website ('todos' | 'com' | 'sem')
     const temSite = Boolean(emp.site && emp.site.trim() !== '');
     if (filtroWebsite === 'com' && !temSite) return false;
     if (filtroWebsite === 'sem' && temSite) return false;
 
-    // 5. Telefone ('todos' | 'com' | 'sem')
     const temTelefone = Boolean(
       emp.telefone && 
       emp.telefone.toLowerCase() !== 'não informado' && 
@@ -259,7 +253,6 @@ export const EmpresasView = () => {
     if (filtroTelefone === 'com' && !temTelefone) return false;
     if (filtroTelefone === 'sem' && temTelefone) return false;
 
-    // 6. E-mail ('todos' | 'com' | 'sem')
     const temEmail = Boolean(
       emp.email && 
       emp.email.toLowerCase() !== 'não informado' && 

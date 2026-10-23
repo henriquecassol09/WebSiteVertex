@@ -69,11 +69,43 @@ class AuthController {
         return ResponseEntity.ok(authService.refresh(req, http));
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<UsuarioResponse> obterUsuarioAtual() {
+        return ResponseEntity.ok(authService.obterUsuarioAtual(AutenticacaoUtil.idUsuarioAtual()));
+    }
+
+    @PutMapping("/foto")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<UsuarioResponse> atualizarFoto(@Valid @RequestBody AtualizarFotoRequest req) {
+        return ResponseEntity.ok(authService.atualizarFoto(AutenticacaoUtil.idUsuarioAtual(), req));
+    }
+
+    @PostMapping(value = "/foto/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<UsuarioResponse> uploadFoto(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return ResponseEntity.ok(authService.uploadFoto(AutenticacaoUtil.idUsuarioAtual(), file));
+    }
+
+    @DeleteMapping("/foto")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<UsuarioResponse> removerFoto() {
+        return ResponseEntity.ok(authService.atualizarFoto(AutenticacaoUtil.idUsuarioAtual(), new AtualizarFotoRequest(null)));
+    }
+
     @PostMapping("/alterar-senha")
     @PreAuthorize("isAuthenticated()")
     ResponseEntity<MensagemResponse> alterarSenha(@Valid @RequestBody AlterarSenhaRequest req,
                                                   @RequestHeader(value = "Authorization", required = false) String authHeader) {
         return ResponseEntity.ok(authService.alterarSenha(AutenticacaoUtil.idUsuarioAtual(), req, authHeader));
+    }
+
+    @DeleteMapping("/conta")
+    @PreAuthorize("isAuthenticated()")
+    ResponseEntity<MensagemResponse> deletarConta(@RequestBody(required = false) DeletarContaRequest req,
+                                                  @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        authService.deletarConta(AutenticacaoUtil.idUsuarioAtual(), req, authHeader);
+        return ResponseEntity.ok(MensagemResponse.of("Conta excluída com sucesso."));
     }
 
     @PostMapping("/logout")

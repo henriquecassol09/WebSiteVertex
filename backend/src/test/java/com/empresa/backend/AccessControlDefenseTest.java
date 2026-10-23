@@ -51,15 +51,12 @@ class AccessControlDefenseTest {
         String email = "usuario@empresa.com";
         String ip = "10.0.0.51";
 
-        // 4 falhas anteriores
         for (int i = 0; i < 4; i++) {
             defense.registrarFalhaLogin(email, ip);
         }
 
-        // Login bem sucedido
         defense.registrarSucessoLogin(email, ip);
 
-        // Nao deve estar bloqueado
         assertDoesNotThrow(() -> defense.verificarBloqueioLogin(email, ip));
     }
 
@@ -74,7 +71,6 @@ class AccessControlDefenseTest {
             assertFalse(codigoDestruido.get());
         }
 
-        // 5a tentativa deve executar o callback de destruicao e lancar BusinessException
         BusinessException ex = assertThrows(BusinessException.class,
                 () -> defense.registrarFalhaOtp(identificador, () -> codigoDestruido.set(true)));
 
@@ -86,7 +82,7 @@ class AccessControlDefenseTest {
     @DisplayName("Deve revogar token JWT imediatamente e identifica-lo na blacklist ativa")
     void deveRevogarTokenJwt() {
         String token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.tokenDeTeste";
-        Instant expiraEm = Instant.now().plusSeconds(900); // 15 min
+        Instant expiraEm = Instant.now().plusSeconds(900);
 
         assertFalse(defense.isTokenRevogado(token));
 
@@ -102,7 +98,6 @@ class AccessControlDefenseTest {
 
         assertThrows(AutenticacaoException.class, AutenticacaoUtil::idUsuarioAtual);
 
-        // Com usuario anonimo
         var authAnonimo = new UsernamePasswordAuthenticationToken("anonymousUser", null);
         SecurityContextHolder.getContext().setAuthentication(authAnonimo);
 

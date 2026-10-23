@@ -1,7 +1,6 @@
 package com.empresa.backend;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -12,21 +11,18 @@ class XssDefenseTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-        // 1. Tags de script
         "<script>alert('XSS')</script>",
         "<SCRIPT SRC=\"https://evil.com/xss.js\"></SCRIPT>",
         "<script>document.cookie='admin=true'</script>",
         "<script type=\"text/javascript\">alert(1);</script>",
         "</script><script>alert(1)</script>",
 
-        // 2. Esquemas perigosos de pseudo-protocolo
         "javascript:alert('XSS')",
         "JAVASCRIPT:alert(document.cookie)",
         "javascript:void(0)",
         "vbscript:msgbox(\"XSS\")",
         "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
 
-        // 3. Event handlers HTML inline
         "<img src=\"x\" onerror=\"alert(1)\">",
         "<svg onload=\"alert(document.domain)\">",
         "<body onload=alert('XSS')>",
@@ -35,13 +31,11 @@ class XssDefenseTest {
         "<a onmouseover=\"alert('XSS')\">Passe o mouse</a>",
         "<details open ontoggle=\"alert(1)\">",
 
-        // 4. Injeções de tags perigosas
         "<iframe src=\"javascript:alert(1)\"></iframe>",
         "<object data=\"javascript:alert(1)\"></object>",
         "<embed src=\"https://evil.com/xss.swf\">",
         "<link rel=\"stylesheet\" href=\"javascript:alert(1)\">",
 
-        // 5. Chamadas de avaliação e evasões com encoding
         "%3Cscript%3Ealert(1)%3C%2Fscript%3E",
         "\\u003cscript\\u003ealert(1)\\u003c/script\\u003e",
         "&lt;script&gt;alert(1)&lt;/script&gt;",

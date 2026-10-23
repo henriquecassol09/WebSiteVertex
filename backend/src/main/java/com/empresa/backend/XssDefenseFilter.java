@@ -24,45 +24,25 @@ import java.time.Instant;
 import java.util.Enumeration;
 import java.util.regex.Pattern;
 
-/**
- * Filtro de Segurança Ativa contra Cross-Site Scripting (XSS - WAF em camada de aplicação).
- *
- * Intercepta requisições HTTP antes de chegarem aos controladores ou à camada de negócios,
- * inspecionando query strings, parâmetros de URL, caminhos e corpo de requisições JSON
- * contra vetores maliciosos de injeção de scripts catalogados pela OWASP.
- */
 @Component
 public class XssDefenseFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(XssDefenseFilter.class);
 
-    // Expressões regulares compiladas com máxima performance para detecção de ataques XSS
+    // Padrões de detecção de XSS
     private static final Pattern[] XSS_PATTERNS = new Pattern[] {
-        // 1. Tags de script completas ou parciais (case-insensitive e com possíveis quebras/espaços)
         Pattern.compile("(?i)<\\s*script[\\s\\S]*?>", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)<\\s*/\\s*script\\s*>", Pattern.CASE_INSENSITIVE),
-
-        // 2. Esquemas de pseudo-protocolo em links e atributos: javascript:, vbscript:, data:text/html
         Pattern.compile("(?i)javascript\\s*:", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)vbscript\\s*:", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)data\\s*:\\s*text\\/(html|javascript)", Pattern.CASE_INSENSITIVE),
-
-        // 3. Event handlers HTML inline (ex: onload=, onerror=, onclick=, onmouseover=)
         Pattern.compile("(?i)\\bon(load|error|click|dblclick|mouseover|mouseout|mouseenter|mouseleave|mousedown|mouseup|keydown|keypress|keyup|focus|blur|change|submit|reset|select|input|invalid|pointerdown|pointerup|animationstart|animationend|toggle|wheel)\\s*=", Pattern.CASE_INSENSITIVE),
-
-        // 4. Injeção de tags HTML ativas ou perigosas de execução/carregamento remoto
         Pattern.compile("(?i)<\\s*(iframe|object|embed|applet|meta|link|base|form)\\b", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)<\\s*(svg|img|body|input|button|details|audio|video|source|marquee|textarea|select)\\b[^>]*?\\bon\\w+\\s*=", Pattern.CASE_INSENSITIVE),
-
-        // 5. Injeções de avaliação dinâmica ou manipulação de DOM sensível
         Pattern.compile("(?i)\\b(document\\.cookie|document\\.location|window\\.location)\\b", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)\\b(alert|prompt|confirm|eval|setTimeout|setInterval|Function)\\s*\\(", Pattern.CASE_INSENSITIVE),
-
-        // 6. Expressões e comportamentos legados em folhas de estilo (CSS expression / behavior)
         Pattern.compile("(?i)expression\\s*\\(", Pattern.CASE_INSENSITIVE),
         Pattern.compile("(?i)behavior\\s*:", Pattern.CASE_INSENSITIVE),
-
-        // 7. Vetores com atributos de injeção em tags como srcdoc ou autofocus combinado com onfocus
         Pattern.compile("(?i)\\bsrcdoc\\s*=", Pattern.CASE_INSENSITIVE)
     };
 
@@ -71,14 +51,12 @@ public class XssDefenseFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        // 1. Inspeciona a URI completa (caminho decodificado)
         String requestUri = request.getRequestURI();
         if (containsXss(requestUri)) {
             bloquearRequisicao(request, response, "URI", requestUri);
             return;
         }
 
-        // 2. Inspeciona a Query String pura e decodificada
         String queryString = request.getQueryString();
         if (queryString != null && !queryString.isBlank()) {
             String decodedQuery = normalizarEntrada(queryString);
@@ -88,7 +66,6 @@ public class XssDefenseFilter extends OncePerRequestFilter {
             }
         }
 
-        // 3. Inspeciona parâmetros de requisição
         Enumeration<String> parameterNames = request.getParameterNames();
         while (parameterNames.hasMoreElements()) {
             String paramName = parameterNames.nextElement();
@@ -107,7 +84,6 @@ public class XssDefenseFilter extends OncePerRequestFilter {
             }
         }
 
-        // 4. Inspeciona o Corpo (Body) de requisições POST, PUT e PATCH com JSON
         String contentType = request.getContentType();
         String method = request.getMethod();
         boolean hasBody = "POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method) || "PATCH".equalsIgnoreCase(method);
@@ -121,7 +97,6 @@ public class XssDefenseFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // Encaminha a requisição com o body em cache para permitir que o Spring/Jackson a leia
             filterChain.doFilter(wrappedRequest, response);
             return;
         }
@@ -129,15 +104,11 @@ public class XssDefenseFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * Verifica se o texto informado contém vetores reconhecidos de ataque XSS.
-     */
     public static boolean containsXss(String value) {
         if (value == null || value.isBlank()) {
             return false;
         }
 
-        // Mitigacao contra ReDoS (Regular Expression DoS): limita comprimento analisado
         String valorInspecao = value.length() > 8192 ? value.substring(0, 8192) : value;
         String normalizado = normalizarEntrada(valorInspecao);
 
@@ -150,14 +121,10 @@ public class XssDefenseFilter extends OncePerRequestFilter {
         return false;
     }
 
-    /**
-     * Normaliza a entrada tratando URL encoding (simples e duplo), entidades HTML básicas e escapes Unicode.
-     */
     private static String normalizarEntrada(String input) {
         if (input == null) return "";
         String texto = input;
 
-        // Decodifica até 2 vezes para mitigar técnicas de duplo encoding (ex: %253Cscript%253E)
         for (int i = 0; i < 2; i++) {
             try {
                 String decodificado = URLDecoder.decode(texto, StandardCharsets.UTF_8);
@@ -168,11 +135,9 @@ public class XssDefenseFilter extends OncePerRequestFilter {
             }
         }
 
-        // Normaliza caracteres Unicode escapados comuns (\u003c -> <, \u003e -> >)
         texto = texto.replace("\\u003c", "<").replace("\\u003C", "<")
                      .replace("\\u003e", ">").replace("\\u003E", ">");
 
-        // Normaliza entidades HTML que podem ser interpretadas por navegadores
         texto = texto.replace("&lt;", "<").replace("&LT;", "<")
                      .replace("&gt;", ">").replace("&GT;", ">")
                      .replace("&#60;", "<").replace("&#62;", ">")
@@ -212,9 +177,7 @@ public class XssDefenseFilter extends OncePerRequestFilter {
         return request.getRemoteAddr();
     }
 
-    /**
-     * Wrapper para permitir a leitura do corpo da requisição múltiplas vezes sem esgotar o InputStream.
-     */
+    // Cache do corpo da requisição para leitura múltipla
     public static class CachedBodyHttpServletRequest extends HttpServletRequestWrapper {
 
         private final byte[] cachedBody;
@@ -243,9 +206,7 @@ public class XssDefenseFilter extends OncePerRequestFilter {
                 }
 
                 @Override
-                public void setReadListener(ReadListener readListener) {
-                    // Sem necessidade de suporte assíncrono avançado
-                }
+                public void setReadListener(ReadListener readListener) {}
 
                 @Override
                 public int read() {

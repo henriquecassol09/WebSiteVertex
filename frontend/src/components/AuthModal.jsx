@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import { VertexLogo } from './Logo';
+import { TermosUsoModal } from './TermosUsoModal';
 import { X, Lock, Mail, User, Check, AlertCircle, KeyRound, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react';
 
 export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail = '' }) => {
@@ -12,6 +13,8 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [codigo, setCodigo] = useState('');
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [termosModalAberto, setTermosModalAberto] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -19,7 +22,6 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
   const { login, register, confirmRegister } = useAuth();
   const toast = useToast();
 
-  // Sincroniza o modo e limpa os campos sempre que o modal abre ou initialMode muda
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
@@ -29,12 +31,13 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
       setSenha('');
       setConfirmarSenha('');
       setCodigo('');
+      setAceitouTermos(false);
+      setTermosModalAberto(false);
     }
   }, [isOpen, initialMode, initialEmail]);
 
   if (!isOpen) return null;
 
-  // Validações da anotação @SenhaForte
   const hasMinLength = senha.length >= 10 && senha.length <= 128;
   const hasUpper = /[A-Z]/.test(senha);
   const hasLower = /[a-z]/.test(senha);
@@ -90,6 +93,11 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
         setConfirmarSenha('');
         toast.error('As senhas não são iguais! Por favor, redigite a senha.');
       }
+
+      if (!aceitouTermos) {
+        errs.aceitouTermos = 'É obrigatório concordar com os Termos de Uso para criar uma conta';
+        toast.error('Você deve concordar com os Termos de Uso do VERTEX para continuar.');
+      }
     }
 
     if (Object.keys(errs).length > 0) {
@@ -104,7 +112,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
         toast.success('Login efetuado com sucesso');
         onClose();
       } else {
-        const res = await register(nome, email, senha);
+        const res = await register(nome, email, senha, aceitouTermos);
         toast.success(res?.mensagem || 'Código de verificação enviado para seu e-mail!');
         setCodigo('');
         setMode('verify');
@@ -136,20 +144,20 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-vertex-dark/50 dark:bg-black/70 backdrop-blur-[2px] animate-in fade-in">
-      <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal rounded-xl max-w-md w-full overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-vertex-dark/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+      <div className="relative bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal rounded-2xl max-w-md w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col my-auto overflow-hidden transition-colors duration-300">
         {/* Header do Modal */}
-        <div className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-vertex-border-light dark:border-vertex-dark-border">
-          <div>
+        <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 flex items-start justify-between border-b border-vertex-border-light dark:border-vertex-dark-border shrink-0">
+          <div className="pr-2">
             <VertexLogo className="h-6 w-auto mb-1" textClassName="text-sm font-semibold dark:text-white" />
-            <h2 className="text-base font-bold text-vertex-dark dark:text-vertex-dark-text">
+            <h2 className="text-sm sm:text-base font-bold text-vertex-dark dark:text-vertex-dark-text">
               {mode === 'verify' 
                 ? 'Verificar E-mail'
                 : mode === 'register' 
                   ? 'Criar Conta Vertex' 
                   : 'Trocar de Conta'}
             </h2>
-            <p className="text-xs text-vertex-muted dark:text-vertex-dark-muted mt-0.5">
+            <p className="text-[11px] sm:text-xs text-vertex-muted dark:text-vertex-dark-muted mt-0.5 leading-relaxed">
               {mode === 'verify'
                 ? `Enviamos um código de 6 dígitos para ${email}`
                 : mode === 'register'
@@ -159,17 +167,17 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface transition-colors self-start"
+            className="p-1.5 sm:p-2 rounded-lg text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface transition-colors shrink-0"
             title="Fechar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Form com Scroll Interno Responsivo */}
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 flex-1 overflow-y-auto overscroll-contain">
           {mode === 'verify' ? (
-            <div className="space-y-4">
+            <div className="space-y-3.5 sm:space-y-4">
               <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-lg text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
                 <Mail className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
                 <div className="leading-relaxed">
@@ -195,7 +203,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                     }}
                     placeholder="000000"
                     maxLength={6}
-                    className={`w-full text-center text-xl tracking-[0.4em] font-mono py-3 rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
+                    className={`w-full min-h-[46px] text-center text-lg sm:text-xl tracking-[0.25em] sm:tracking-[0.4em] font-mono py-2.5 sm:py-3 rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
                       errors.codigo ? 'border-red-400 bg-red-50/20' : 'border-vertex-border dark:border-vertex-dark-border'
                     }`}
                   />
@@ -203,11 +211,11 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                 {errors.codigo && <p className="text-[11px] text-red-500 mt-1 text-center">{errors.codigo}</p>}
               </div>
 
-              <div className="flex items-center justify-between text-xs pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1">
                 <button
                   type="button"
                   onClick={() => setMode('register')}
-                  className="flex items-center gap-1 text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text transition-colors"
+                  className="flex items-center gap-1 py-1 text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text transition-colors"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Corrigir e-mail
@@ -216,7 +224,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                   type="button"
                   disabled={resending}
                   onClick={handleReenviarCodigo}
-                  className="flex items-center gap-1 font-semibold text-vertex-orange hover:text-vertex-orange-hover transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1 py-1 font-semibold text-vertex-orange hover:text-vertex-orange-hover transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
                   Reenviar código
@@ -226,7 +234,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
               <button
                 type="submit"
                 disabled={loading || codigo.length !== 6}
-                className="w-full py-2.5 rounded-lg bg-vertex-orange text-white text-xs font-semibold hover:bg-vertex-orange-hover transition-colors shadow-subtle disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full min-h-[44px] py-2.5 sm:py-3 rounded-lg bg-vertex-orange text-white text-xs sm:text-sm font-semibold hover:bg-vertex-orange-hover transition-colors shadow-subtle disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -253,7 +261,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                       onChange={(e) => setNome(e.target.value)}
                       placeholder="Nome do operador ou gestor"
                       maxLength={150}
-                      className={`w-full pl-9 pr-3 py-2 text-xs rounded border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
+                      className={`w-full pl-9 pr-3 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
                         errors.nome ? 'border-red-400 bg-red-50/20' : 'border-vertex-border dark:border-vertex-dark-border'
                       }`}
                     />
@@ -274,7 +282,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu.email@gmail.com"
                     maxLength={255}
-                    className={`w-full pl-9 pr-3 py-2 text-xs rounded border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
+                    className={`w-full pl-9 pr-3 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
                       errors.email ? 'border-red-400 bg-red-50/20' : 'border-vertex-border dark:border-vertex-dark-border'
                     }`}
                   />
@@ -293,7 +301,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     placeholder="••••••••••••"
-                    className={`w-full pl-9 pr-3 py-2 text-xs rounded border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
+                    className={`w-full pl-9 pr-3 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
                       errors.senha ? 'border-red-400 bg-red-50/20' : 'border-vertex-border dark:border-vertex-dark-border'
                     }`}
                   />
@@ -335,7 +343,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                         if (errors.confirmarSenha) setErrors((prev) => ({ ...prev, confirmarSenha: '' }));
                       }}
                       placeholder="••••••••••••"
-                      className={`w-full pl-9 pr-8 py-2 text-xs rounded border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-colors ${
+                      className={`w-full pl-9 pr-8 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-colors ${
                         errors.confirmarSenha 
                           ? 'border-red-400 bg-red-50/20' 
                           : (confirmarSenha && senha === confirmarSenha)
@@ -355,45 +363,96 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
 
               {/* Checklist de Validação Estrita de Senha Forte (@SenhaForte) */}
               {mode === 'register' && (
-                <div className="p-3 bg-vertex-bg dark:bg-vertex-dark-surface rounded border border-vertex-border dark:border-vertex-dark-border space-y-1.5 text-[11px]">
+                <div className="p-3 bg-vertex-bg dark:bg-vertex-dark-surface rounded-lg border border-vertex-border dark:border-vertex-dark-border space-y-1.5 text-[11px]">
                   <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text block mb-1">
                     Requisitos de Segurança da Senha:
                   </span>
-                  <div className="grid grid-cols-2 gap-1 text-vertex-muted dark:text-vertex-dark-muted">
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-vertex-muted dark:text-vertex-dark-muted">
                     <span className={`flex items-center gap-1 ${hasMinLength ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                      <Check className={`w-3 h-3 ${hasMinLength ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                      <Check className={`w-3 h-3 shrink-0 ${hasMinLength ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
                       Mín. 10 caracteres
                     </span>
                     <span className={`flex items-center gap-1 ${hasUpper ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                      <Check className={`w-3 h-3 ${hasUpper ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                      <Check className={`w-3 h-3 shrink-0 ${hasUpper ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
                       Letra maiúscula
                     </span>
                     <span className={`flex items-center gap-1 ${hasLower ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                      <Check className={`w-3 h-3 ${hasLower ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                      <Check className={`w-3 h-3 shrink-0 ${hasLower ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
                       Letra minúscula
                     </span>
                     <span className={`flex items-center gap-1 ${hasNumber ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                      <Check className={`w-3 h-3 ${hasNumber ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                      <Check className={`w-3 h-3 shrink-0 ${hasNumber ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
                       Número
                     </span>
                     <span className={`flex items-center gap-1 col-span-2 ${hasSpecial ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}`}>
-                      <Check className={`w-3 h-3 ${hasSpecial ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
+                      <Check className={`w-3 h-3 shrink-0 ${hasSpecial ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-slate-600'}`} />
                       Caractere especial (!@#$%&*)
                     </span>
                   </div>
                 </div>
               )}
 
+              {/* Caixa de Concordância com os Termos de Uso */}
+              {mode === 'register' && (
+                <div className="pt-1 space-y-1">
+                  <label
+                    htmlFor="aceitou-termos-checkbox"
+                    className="flex items-start gap-2.5 cursor-pointer select-none text-xs text-vertex-dark dark:text-vertex-dark-text leading-relaxed"
+                  >
+                    <input
+                      type="checkbox"
+                      id="aceitou-termos-checkbox"
+                      checked={aceitouTermos}
+                      onChange={(e) => {
+                        setAceitouTermos(e.target.checked);
+                        if (errors.aceitouTermos) setErrors((prev) => ({ ...prev, aceitouTermos: '' }));
+                      }}
+                      className="mt-0.5 w-4 h-4 rounded text-vertex-orange focus:ring-vertex-orange/20 border-gray-300 dark:border-gray-600 accent-[#FF5500] cursor-pointer shrink-0"
+                    />
+                    <span>
+                      Li e concordo com os{' '}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setTermosModalAberto(true);
+                        }}
+                        className="font-semibold text-vertex-orange hover:text-vertex-orange-hover underline underline-offset-2 transition-colors inline"
+                      >
+                        Termos de Uso
+                      </button>
+                      .
+                    </span>
+                  </label>
+                  {errors.aceitouTermos && (
+                    <p className="text-[11px] text-red-500 font-medium pl-6">
+                      {errors.aceitouTermos}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={loading || (mode === 'register' && (!isSenhaForteValida || senha !== confirmarSenha))}
-                className="w-full py-2.5 rounded bg-vertex-orange text-white text-xs font-semibold hover:bg-vertex-orange-hover transition-colors shadow-subtle disabled:opacity-50"
+                disabled={loading || (mode === 'register' && (!isSenhaForteValida || senha !== confirmarSenha || !aceitouTermos))}
+                className="w-full min-h-[44px] py-2.5 sm:py-3 rounded-lg bg-vertex-orange text-white text-xs sm:text-sm font-semibold hover:bg-vertex-orange-hover transition-colors shadow-subtle disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? 'Processando...' : mode === 'login' ? 'Entrar no VERTEX' : 'Criar Conta e Receber Código'}
               </button>
             </>
           )}
         </form>
+
+        {/* Modal dos Termos de Uso */}
+        <TermosUsoModal
+          isOpen={termosModalAberto}
+          onClose={() => setTermosModalAberto(false)}
+          onAccept={() => {
+            setAceitouTermos(true);
+            if (errors.aceitouTermos) setErrors((prev) => ({ ...prev, aceitouTermos: '' }));
+          }}
+        />
       </div>
     </div>
   );

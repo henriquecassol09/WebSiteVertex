@@ -1,13 +1,5 @@
-/**
- * VERTEX - Cliente de API HTTP
- * Totalmente alinhado aos contratos e DTOs do backend Spring Boot 3.3.
- * ZERO DADOS INVENTADOS: Nenhuma empresa, pesquisa ou proposta fictícia.
- * Apenas consome o que o backend retorna.
- */
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-// Limpeza garantida de resquícios de mocks no navegador do usuário
 if (typeof window !== 'undefined') {
   localStorage.removeItem('vertex_empresas');
   localStorage.removeItem('vertex_pesquisas');
@@ -15,7 +7,7 @@ if (typeof window !== 'undefined') {
   localStorage.removeItem('vertex_propostas');
 }
 
-// Gerenciamento de Tokens Reais
+// Armazenamento de tokens
 export const tokenStorage = {
   getAccessToken: () => localStorage.getItem('vertex_access_token'),
   getRefreshToken: () => localStorage.getItem('vertex_refresh_token'),
@@ -47,7 +39,6 @@ class ApiClient {
         data = await res.json().catch(() => ({}));
       }
     } catch {
-      // Fallback apenas no ambiente de desenvolvimento local caso o proxy do Vite oscile
       if (import.meta.env.DEV) {
         try {
           res = await fetch(`http://127.0.0.1:8080/api/health`, {
@@ -96,7 +87,6 @@ class ApiClient {
         headers,
       });
     } catch {
-      // Fallback direto no backend apenas em desenvolvimento caso o proxy do Vite tenha oscilado
       if (import.meta.env.DEV) {
         try {
           response = await fetch(`http://127.0.0.1:8080/api${endpoint}`, {
@@ -113,7 +103,6 @@ class ApiClient {
       }
     }
 
-    // Se token expirou (401), tentar refresh apenas em rotas protegidas (não em /auth)
     if (response.status === 401 && !endpoint.startsWith('/auth') && tokenStorage.getRefreshToken() && !options._retry) {
       const refreshed = await this.auth.refresh(tokenStorage.getRefreshToken());
       if (refreshed?.accessToken) {
@@ -126,7 +115,6 @@ class ApiClient {
       return null;
     }
 
-    // Leitura segura do corpo (evita quebrar quando o backend retorna corpo vazio em 403/401)
     const text = await response.text();
     let data = null;
     if (text && text.trim()) {
@@ -137,7 +125,6 @@ class ApiClient {
       }
     }
 
-    // Erros HTTP onde o backend ESTÁ ATIVO e respondendo
     if (response.status === 401) {
       this.backendAvailable = true;
       const msg = data?.erro || data?.message || 'Credenciais inválidas ou sessão expirada';
@@ -164,7 +151,7 @@ class ApiClient {
     return data;
   }
 
-  // ===== AUTENTICAÇÃO (/api/auth) =====
+  // Autenticação
   auth = {
     registrar: async (dados) => {
       const res = await this.request('/auth/registrar', {
@@ -248,7 +235,6 @@ class ApiClient {
           });
         }
       } catch {
-        // silencioso
       } finally {
         tokenStorage.clear();
       }
@@ -260,20 +246,104 @@ class ApiClient {
           method: 'POST',
         });
       } catch {
-        // silencioso
       } finally {
         tokenStorage.clear();
       }
+    },
+
+    me: async () => {
+      return await this.request('/auth/me', {
+        method: 'GET',
+      });
+    },
+
+    alterarSenha: async ({ senhaAtual, novaSenha }) => {
+      return await this.request('/auth/alterar-senha', {
+        method: 'POST',
+        body: JSON.stringify({ senhaAtual, novaSenha }),
+      });
+    },
+
+    deletarConta: async ({ senha } = {}) => {
+      return await this.request('/auth/conta', {
+        method: 'DELETE',
+        body: JSON.stringify({ senha }),
+      });
+    },
+
+    atualizarFoto: async (fotoUrl) => {
+      return await this.request('/auth/foto', {
+        method: 'PUT',
+        body: JSON.stringify({ fotoUrl }),
+      });
+    },
+
+    uploadFoto: async (file, fallbackDataUrl = null) => {
+      const accessToken = tokenStorage.getAccessToken();
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const headers = {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-Protection': '1',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      };
+
+      try {
+        let response;
+        try {
+          response = await fetch(`${API_BASE_URL}/auth/foto/upload`, {
+            method: 'POST',
+            headers,
+            body: formData,
+          });
+        } catch {
+          if (import.meta.env.DEV) {
+            response = await fetch(`http://127.0.0.1:8080/api/auth/foto/upload`, {
+              method: 'POST',
+              headers,
+              body: formData,
+            });
+          } else {
+            throw new Error('Serviço indisponível no momento.');
+          }
+        }
+
+        if (response.ok) {
+          return await response.json();
+        }
+
+        if (fallbackDataUrl) {
+          return await this.auth.atualizarFoto(fallbackDataUrl);
+        }
+
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.mensagem || errorData.message || 'Erro ao enviar foto.');
+      } catch (err) {
+        if (fallbackDataUrl) {
+          try {
+            return await this.auth.atualizarFoto(fallbackDataUrl);
+          } catch (fallbackErr) {
+            throw new Error(fallbackErr.message || err.message || 'Erro ao salvar foto.');
+          }
+        }
+        throw err;
+      }
+    },
+
+    removerFoto: async () => {
+      return await this.request('/auth/foto', {
+        method: 'DELETE',
+      });
     }
   };
 
-  // ===== EMPRESAS (/api/empresas) =====
+  // Empresas
   empresas = {
     listar: async (page = 0, size = 20) => {
       try {
         return await this.request(`/empresas?page=${page}&size=${size}`);
       } catch {
-        // Quando não há backend respondendo, retorna vazio (ZERO DADOS INVENTADOS)
         return {
           content: [],
           totalElements: 0,
@@ -317,7 +387,7 @@ class ApiClient {
     }
   };
 
-  // ===== NOTAS DA EMPRESA (/api/empresas/{idEmpresa}/notas) =====
+  // Notas
   notas = {
     listar: async (idEmpresa) => {
       try {
@@ -341,7 +411,7 @@ class ApiClient {
     }
   };
 
-  // ===== PESQUISAS (/api/pesquisas) =====
+  // Pesquisas
   pesquisas = {
     listar: async (page = 0, size = 20) => {
       try {
@@ -384,7 +454,7 @@ class ApiClient {
     }
   };
 
-  // ===== PROPOSTAS (/api/propostas) =====
+  // Propostas
   propostas = {
     listar: async (page = 0, size = 20) => {
       try {

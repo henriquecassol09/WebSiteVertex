@@ -20,7 +20,9 @@ record RegistrarRequest(
 
     @NotBlank(message = "Senha e obrigatoria")
     @SenhaForte
-    String senha
+    String senha,
+
+    Boolean aceitouTermos
 
 ) {}
 
@@ -84,6 +86,37 @@ record AuthResponse(String accessToken, String refreshToken, long expiraEmSegund
         return new AuthResponse(accessToken, refreshToken, expiraEmSegundos, "Bearer");
     }
 }
+
+record UsuarioResponse(
+    String idUsuario,
+    String nome,
+    String email,
+    boolean emailVerificado,
+    String imagem,
+    Instant criadoEm,
+    Instant atualizadoEm
+) {
+    static UsuarioResponse of(Usuario u) {
+        return new UsuarioResponse(
+            u.getIdUsuario(),
+            u.getNome(),
+            u.getEmail(),
+            u.isEmailVerificado(),
+            u.getImagem(),
+            u.getCriadoEm(),
+            u.getAtualizadoEm()
+        );
+    }
+}
+
+record AtualizarFotoRequest(
+    @Size(max = 500, message = "URL da foto não pode exceder 500 caracteres")
+    String fotoUrl
+) {}
+
+record DeletarContaRequest(
+    String senha
+) {}
 
 // ===== Pesquisas =====
 
@@ -154,12 +187,10 @@ record PesquisaResponse(
             }
         }
 
-        // Normaliza estritamente para uma das 6 cidades citadas
         String cidadeNormalizada = CidadeHelper.normalizarCidade(cidade);
         if (cidadeNormalizada != null) {
             cidade = cidadeNormalizada;
         } else {
-            // Se o valor legado continha outra cidade, verifica menção a cidades citadas na consulta/endereço/raw
             String textoBusca = (p.getConsulta() + " " + endereco + " " + raw).toLowerCase();
             for (CidadeHelper.CidadeInfo c : CidadeHelper.CIDADES_CITADAS) {
                 if (textoBusca.contains(c.nome().toLowerCase())) {

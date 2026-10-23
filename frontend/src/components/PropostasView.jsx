@@ -21,12 +21,10 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
   const [pageSize] = useState(10);
   const [pageData, setPageData] = useState({ totalElements: 0, totalPages: 1 });
 
-  // Modais e Detalhe
   const [modalNovaOpen, setModalNovaOpen] = useState(false);
   const [propostaDetalhe, setPropostaDetalhe] = useState(null);
   const [modalNovaVersaoOpen, setModalNovaVersaoOpen] = useState(false);
 
-  // Form Nova Proposta
   const [formData, setFormData] = useState({
     idEmpresa: '',
     titulo: '',
@@ -36,7 +34,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Form Nova Versão
   const [versaoJson, setVersaoJson] = useState('');
   const [submittingVersao, setSubmittingVersao] = useState(false);
 
@@ -59,7 +56,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
     }
   }, [preselectedEmpresa]);
 
-  // Fechar modais ao pressionar a tecla ESC
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -101,7 +97,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
       const res = await api.empresas.listar(0, 100);
       setEmpresas(res?.content || []);
     } catch {
-      // silencioso
     }
   };
 
@@ -215,7 +210,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Ação */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-vertex-dark dark:text-vertex-dark-text">
@@ -277,7 +271,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
                     className="hover:bg-slate-50/70 dark:hover:bg-vertex-dark-surface/40 transition-colors duration-150 cursor-pointer group"
                     onClick={() => setPropostaDetalhe(prop)}
                   >
-                    {/* Título e ID */}
                     <td className="py-4 px-5">
                       <div className="flex items-center gap-3">
                         <div className="w-7.5 h-7.5 rounded bg-vertex-orange-light dark:bg-vertex-orange/10 text-vertex-orange flex items-center justify-center font-bold text-xs shrink-0">
@@ -294,7 +287,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
                       </div>
                     </td>
 
-                    {/* Empresa */}
                     <td className="py-4 px-5 font-medium text-vertex-dark dark:text-vertex-dark-text">
                       <div className="flex items-center gap-1.5">
                         <Building2 className="w-3.5 h-3.5 text-vertex-muted dark:text-vertex-dark-muted shrink-0" />
@@ -302,24 +294,20 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
                       </div>
                     </td>
 
-                    {/* Status */}
                     <td className="py-4 px-5">
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40">
                         {prop.status}
                       </span>
                     </td>
 
-                    {/* Válido Até */}
                     <td className="py-4 px-5 font-mono text-[11px] text-vertex-body dark:text-vertex-dark-muted">
                       {formatDate(prop.validoAte)}
                     </td>
 
-                    {/* Criado Em */}
                     <td className="py-4 px-5 font-mono text-[11px] text-vertex-muted dark:text-vertex-dark-muted">
                       {formatDate(prop.criadoEm)}
                     </td>
 
-                    {/* Ações */}
                     <td className="py-4 px-5 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setPropostaDetalhe(prop)}
@@ -335,7 +323,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
           </table>
         </div>
 
-        {/* Paginação */}
         <div className="flex items-center justify-between px-5 py-3.5 border-t border-vertex-border dark:border-vertex-dark-border bg-slate-50/40 dark:bg-vertex-dark-surface/40 text-xs text-vertex-muted dark:text-vertex-dark-muted">
           <div>
             Total: <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text">{pageData.totalElements}</span> propostas
@@ -392,7 +379,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
             </div>
 
             <form onSubmit={handleCriarProposta} className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-5">
-              {/* Seleção de Empresa */}
               <div>
                 <label className="block text-xs font-medium text-vertex-dark dark:text-vertex-dark-text mb-1.5">
                   Empresa Beneficiária <span className="text-vertex-orange">*</span>
@@ -416,7 +402,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
                 )}
               </div>
 
-              {/* Título */}
               <div>
                 <label className="block text-xs font-medium text-vertex-dark dark:text-vertex-dark-text mb-1.5">
                   Título da Proposta <span className="text-vertex-orange">*</span>
@@ -436,7 +421,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
                 )}
               </div>
 
-              {/* Resumo */}
               <div>
                 <label className="block text-xs font-medium text-vertex-dark dark:text-vertex-dark-text mb-1.5">
                   Resumo Executivo (resumo)
@@ -474,7 +458,7 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
         </div>
       )}
 
-      {/* Detalhe da Proposta & Criação de Nova Versão */}
+      {/* Detalhe da Proposta */}
       {propostaDetalhe && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-vertex-dark/50 dark:bg-black/70 backdrop-blur-[2px] animate-in fade-in">
           <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal rounded max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden transition-colors">
@@ -496,7 +480,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* Informações Gerais */}
               <div className="grid grid-cols-2 gap-4 p-4 bg-vertex-bg/50 dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded text-xs">
                 <div>
                   <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px]">Empresa Associada:</span>
@@ -530,7 +513,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
                 </div>
               </div>
 
-              {/* Resumo */}
               {propostaDetalhe.resumo && (
                 <div>
                   <h3 className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text mb-1">
@@ -542,7 +524,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
                 </div>
               )}
 
-              {/* Escopo Atual */}
               {propostaDetalhe.escopo && (
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -557,7 +538,6 @@ export const PropostasView = ({ preselectedEmpresa, onClearPreselectedEmpresa })
                 </div>
               )}
 
-              {/* Ação para Nova Versão (/versoes) */}
               <div className="p-4 border border-dashed border-vertex-border dark:border-vertex-dark-border rounded bg-white dark:bg-vertex-dark-surface flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text">

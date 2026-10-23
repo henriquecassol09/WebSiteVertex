@@ -75,7 +75,6 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
     }
   }, [empresa?.idEmpresa]);
 
-  // Bloquear scroll da página enquanto a janela de informações estiver aberta
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -84,7 +83,6 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
     };
   }, []);
 
-  // Fechar modal ao pressionar a tecla ESC
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {

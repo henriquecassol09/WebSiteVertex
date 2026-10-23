@@ -49,7 +49,6 @@ export const EmpresaModal = ({ isOpen, onClose, onSave, empresa, pesquisas = [] 
     setErrors({});
   }, [empresa, isOpen]);
 
-  // Fechar o modal com a tecla ESC
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -121,12 +120,12 @@ export const EmpresaModal = ({ isOpen, onClose, onSave, empresa, pesquisas = [] 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal dark:shadow-dark-modal rounded-2xl overflow-hidden max-w-2xl w-full flex flex-col transition-colors duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal dark:shadow-dark-modal rounded-2xl overflow-hidden max-w-2xl w-full max-h-[92dvh] sm:max-h-[90vh] flex flex-col my-auto transition-colors duration-300">
         {/* Header do Modal Compactado */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-vertex-orange-light dark:bg-vertex-orange/10 flex items-center justify-center text-vertex-orange">
+            <div className="w-8 h-8 rounded-lg bg-vertex-orange-light dark:bg-vertex-orange/10 flex items-center justify-center text-vertex-orange shrink-0">
               <Building2 className="w-4 h-4" />
             </div>
             <div>
@@ -140,14 +139,14 @@ export const EmpresaModal = ({ isOpen, onClose, onSave, empresa, pesquisas = [] 
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150"
+            className="p-1.5 rounded-md text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface active:scale-95 transition-all duration-150"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Formulário com espaçamentos enxutos */}
-        <form onSubmit={handleSubmit} className="px-6 py-3.5 space-y-2.5">
+        {/* Formulário com scroll interno responsivo */}
+        <form onSubmit={handleSubmit} className="px-4 sm:px-6 py-3.5 space-y-2.5 flex-1 overflow-y-auto overscroll-contain">
           {/* Nome */}
           <div>
             <label className="block text-xs font-medium text-vertex-dark dark:text-vertex-dark-text mb-1">
@@ -319,18 +318,18 @@ export const EmpresaModal = ({ isOpen, onClose, onSave, empresa, pesquisas = [] 
         </form>
 
         {/* Rodapé de Ações Compactado */}
-        <div className="flex items-center justify-end gap-2.5 px-6 py-3 border-t border-vertex-border dark:border-vertex-dark-border bg-slate-50/50 dark:bg-vertex-dark-surface/50">
+        <div className="flex items-center justify-end gap-2.5 px-4 sm:px-6 py-3 border-t border-vertex-border dark:border-vertex-dark-border bg-slate-50/50 dark:bg-vertex-dark-surface/50 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface rounded-md transition-all duration-150"
+            className="px-3.5 sm:px-4 py-2 min-h-[40px] text-xs font-medium text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface rounded-md transition-all duration-150"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex items-center gap-1.5 px-5 py-2 text-xs font-semibold rounded-md bg-vertex-orange text-white hover:bg-vertex-orange-hover active:scale-[0.98] transition-all duration-200 shadow-sm hover:shadow-glow-orange disabled:opacity-50"
+            className="flex items-center gap-1.5 px-4 sm:px-5 py-2 min-h-[40px] text-xs font-semibold rounded-md bg-vertex-orange text-white hover:bg-vertex-orange-hover active:scale-[0.98] transition-all duration-200 shadow-sm hover:shadow-glow-orange disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{submitting ? 'Salvando...' : empresa ? 'Salvar Alterações' : 'Cadastrar Empresa'}</span>

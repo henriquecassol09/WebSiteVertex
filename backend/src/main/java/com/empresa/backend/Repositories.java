@@ -32,10 +32,18 @@ interface SessaoRepository extends JpaRepository<Sessao, String> {
     @Modifying
     @Query("DELETE FROM Sessao s WHERE s.expiraEm < :agora")
     void limparExpiradas(@Param("agora") Instant agora);
+
+    @Modifying
+    @Query("DELETE FROM Sessao s WHERE s.idUsuario = :idUsuario")
+    void deleteByIdUsuario(@Param("idUsuario") String idUsuario);
 }
 
 interface ContaRepository extends JpaRepository<Conta, String> {
     Optional<Conta> findByIdUsuarioAndIdProvedor(String idUsuario, String idProvedor);
+
+    @Modifying
+    @Query("DELETE FROM Conta c WHERE c.idUsuario = :idUsuario")
+    void deleteByIdUsuario(@Param("idUsuario") String idUsuario);
 }
 
 interface VerificacaoRepository extends JpaRepository<Verificacao, String> {
@@ -57,6 +65,10 @@ interface PesquisaRepository extends JpaRepository<Pesquisa, String> {
            "AND (LOWER(p.consulta) NOT IN (SELECT LOWER(e.nome) FROM Empresa e WHERE e.idUsuario = :idUsuario)) " +
            "ORDER BY CASE WHEN LOWER(p.regiao) LIKE '%porto barreiro%' THEN 1 ELSE 0 END ASC, p.criadoEm DESC")
     Page<Pesquisa> findNaoSalvasByIdUsuario(@Param("idUsuario") String idUsuario, Pageable pageable);
+
+    @Modifying
+    @Query("DELETE FROM Pesquisa p WHERE p.idUsuario = :idUsuario")
+    void deleteByIdUsuario(@Param("idUsuario") String idUsuario);
 }
 
 interface EmpresaRepository extends JpaRepository<Empresa, String> {
@@ -64,20 +76,36 @@ interface EmpresaRepository extends JpaRepository<Empresa, String> {
     Optional<Empresa> findByIdEmpresaAndIdUsuario(String idEmpresa, String idUsuario);
     boolean existsByIdUsuarioAndNomeIgnoreCase(String idUsuario, String nome);
     boolean existsByIdUsuarioAndIdPesquisa(String idUsuario, String idPesquisa);
+
+    @Modifying
+    @Query("DELETE FROM Empresa e WHERE e.idUsuario = :idUsuario")
+    void deleteByIdUsuario(@Param("idUsuario") String idUsuario);
 }
 
 interface PropostaRepository extends JpaRepository<Proposta, String> {
     Page<Proposta> findByIdUsuario(String idUsuario, Pageable pageable);
     Optional<Proposta> findByIdPropostaAndIdUsuario(String idProposta, String idUsuario);
+
+    @Modifying
+    @Query("DELETE FROM Proposta pr WHERE pr.idUsuario = :idUsuario")
+    void deleteByIdUsuario(@Param("idUsuario") String idUsuario);
 }
 
 interface VersaoPropostaRepository extends JpaRepository<VersaoProposta, String> {
     List<VersaoProposta> findByIdPropostaAndIdUsuarioOrderByVersaoDesc(String idProposta, String idUsuario);
     Optional<VersaoProposta> findTopByIdPropostaAndIdUsuarioOrderByVersaoDesc(String idProposta, String idUsuario);
+
+    @Modifying
+    @Query("DELETE FROM VersaoProposta vp WHERE vp.idUsuario = :idUsuario")
+    void deleteByIdUsuario(@Param("idUsuario") String idUsuario);
 }
 
 interface NotaEmpresaRepository extends JpaRepository<NotaEmpresa, String> {
     List<NotaEmpresa> findByIdEmpresaAndIdUsuarioOrderByCriadoEmDesc(String idEmpresa, String idUsuario);
     Optional<NotaEmpresa> findByIdNotaEmpresaAndIdUsuario(String idNotaEmpresa, String idUsuario);
     Optional<NotaEmpresa> findByIdNotaEmpresaAndIdEmpresaAndIdUsuario(String idNotaEmpresa, String idEmpresa, String idUsuario);
+
+    @Modifying
+    @Query("DELETE FROM NotaEmpresa ne WHERE ne.idUsuario = :idUsuario")
+    void deleteByIdUsuario(@Param("idUsuario") String idUsuario);
 }

@@ -1,48 +1,76 @@
-/**
- * Utilitários de Segurança e Sanitização contra Cross-Site Scripting (XSS).
- */
-
-/**
- * Valida e sanitiza uma URL para uso seguro em tags <a href="...">.
- * Bloqueia estritamente pseudo-protocolos perigosos (javascript:, data:, vbscript:)
- * e garante que apenas protocolos seguros (http://, https://) sejam executados.
- *
- * @param {string} url - URL a ser validada
- * @returns {string} - URL segura sanitizada ou '#' se for insegura
- */
+// Sanitização de URL contra XSS
 export const sanitizarUrl = (url) => {
   if (!url || typeof url !== 'string') return '';
   const limpa = url.trim();
   if (!limpa) return '';
 
-  // Bloqueio rigoroso de injeção de script via protocolo (ex: javascript:alert(1), data:text/html, vbscript:)
   const protocoloSuspeito = /^\s*(javascript|data|vbscript|file):/i;
   if (protocoloSuspeito.test(limpa)) {
     console.warn('[Segurança VERTEX] Tentativa de navegação com protocolo inseguro (XSS bloqueado):', limpa);
     return '#';
   }
 
-  // Remove caracteres que tentem quebrar atributos HTML ou injetar tags
   if (/[<>"']/.test(limpa)) {
     console.warn('[Segurança VERTEX] Caracteres perigosos detectados na URL (XSS bloqueado):', limpa);
     return '#';
   }
 
-  // Se já começar com http:// ou https://, retorna diretamente
   if (/^https?:\/\//i.test(limpa)) {
     return limpa;
   }
 
-  // Se for um domínio simples (ex: "empresa.com.br"), prefixa com https://
   return `https://${limpa}`;
 };
 
-/**
- * Escapa caracteres HTML perigosos para exibição segura de texto puro.
- *
- * @param {string} str - Texto a ser escapado
- * @returns {string} - Texto seguro com entidades HTML
- */
+// Validação e sanitização estrita para foto de perfil (Anti-XSS e Anti-SSRF)
+export const sanitizarUrlFoto = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  const limpa = url.trim();
+  if (!limpa) return null;
+
+  // 1. Suporte seguro a Data URIs de imagens rasterizadas (JPEG, PNG, WebP)
+  const prefixoDataUri = /^data:image\/(jpeg|png|webp|jpg);base64,/i;
+  if (prefixoDataUri.test(limpa)) {
+    // Bloqueia qualquer tentativa de inclusão de scripts ou tags SVG/HTML
+    const inicio = limpa.substring(0, 150).toLowerCase();
+    if (inicio.includes('svg') || inicio.includes('xml') || inicio.includes('script') || inicio.includes('html')) {
+      return null;
+    }
+    // Protege contra quebra de atributos HTML (XSS)
+    if (/[<>"']/.test(limpa)) {
+      return null;
+    }
+    return limpa;
+  }
+
+  // 2. URLs externas: Apenas HTTPS é permitido
+  if (!limpa.toLowerCase().startsWith('https://')) {
+    return null;
+  }
+
+  // Bloqueio de injeção de caracteres perigosos
+  if (/[<>"'\r\n\t\s]/.test(limpa)) {
+    return null;
+  }
+
+  // Bloqueio de SVG (Prevenção contra Stored XSS)
+  if (/\.(svg|svgz)($|\?|#)/i.test(limpa)) {
+    return null;
+  }
+
+  // Bloqueio de endereços locais
+  const hostMatch = limpa.match(/^https:\/\/([^\/?#:]+)/i);
+  if (hostMatch) {
+    const host = hostMatch[1].toLowerCase();
+    if (host === 'localhost' || host.startsWith('127.') || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('169.254.') || host === '0.0.0.0') {
+      return null;
+    }
+  }
+
+  return limpa;
+};
+
+// Escape de caracteres HTML
 export const escaparHtml = (str) => {
   if (!str || typeof str !== 'string') return '';
   return str

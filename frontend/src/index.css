@@ -33,6 +33,23 @@
     color: var(--text-primary);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     transition: background-color 0.7s ease-in-out, color 0.7s ease-in-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+
+  /* Previne zoom involuntário em iOS e telas pequenas preservando usabilidade */
+  @media (max-width: 640px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
   }
 
   textarea {
@@ -40,7 +57,7 @@
   }
 }
 
-/* Fallback Global de Alta Confiabilidade para Tema Escuro */
+/* Tema escuro */
 html.dark body, body.dark {
   background-color: #0A0B0E !important;
   color: #F3F4F6 !important;
@@ -97,7 +114,7 @@ html.dark footer, body.dark footer {
   border-color: #1F242D !important;
 }
 
-/* Scrollbar minimalista */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -124,7 +141,7 @@ html.dark footer, body.dark footer {
   background: #3F4756;
 }
 
-/* Animações para Gavetas (Drawers) e Modais */
+/* Animações */
 @keyframes slideInRight {
   from {
     transform: translateX(100%);

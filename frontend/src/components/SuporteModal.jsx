@@ -165,7 +165,7 @@ export const SuporteModal = ({
                   Chamado Enviado com Sucesso!
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-vertex-dark-muted max-w-md mx-auto leading-relaxed">
-                  O chamado e os detalhes técnicos foram encaminhados para a equipe de desenvolvimento. Responderemos e te notificaremos na caixa de entrada do seu email (<strong className="text-vertex-dark dark:text-vertex-dark-text break-all">{email}</strong>).
+                  O chamado e os detalhes técnicos foram encaminhados para a equipe de desenvolvimento. Responderemos e te notificaremos na caixa de entrada do seu email <span className="inline-block whitespace-nowrap font-semibold text-vertex-dark dark:text-vertex-dark-text">({email})</span>.
                 </p>
               </div>
 

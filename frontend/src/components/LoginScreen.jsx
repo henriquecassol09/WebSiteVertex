@@ -432,7 +432,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
                     setForgotEmail(e.target.value);
                     if (errors.forgotEmail) setErrors((prev) => ({ ...prev, forgotEmail: '' }));
                   }}
-                  placeholder="nome@empresa.com.br"
+                  placeholder="nome@seuemail.com"
                   className="w-full pl-10 pr-3.5 min-h-[44px] py-2.5 text-xs sm:text-sm rounded-lg border bg-gray-50 border-gray-300 dark:bg-gray-800 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange"
                 />
               </div>

@@ -15,7 +15,8 @@ import {
   ArrowUpRight,
   Send,
   MessageSquare,
-  Check
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
 import { sanitizarUrl } from '../utils/security';
@@ -375,46 +376,96 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
           </div>
 
           {/* SEÇÃO 3: ÁREA & LOCALIZAÇÃO */}
-          <div className="bg-white dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded-xl p-5 shadow-subtle space-y-3.5 transition-colors">
-            <div className="flex items-center justify-between border-b border-vertex-border/70 dark:border-vertex-dark-border pb-2.5">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-red-500" />
-                <h3 className="text-xs font-bold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
-                  Área & Localização
-                </h3>
-              </div>
+          {(() => {
+            const temCoordenadas = empresa.latitude && empresa.longitude && (empresa.latitude !== 0 || empresa.longitude !== 0);
+            const enderecoLimpo = empresa.endereco ? empresa.endereco.replace(/\s*\([^)]*\)/g, '').trim() : '';
+            const temEnderecoValido = enderecoLimpo.length > 0 && enderecoLimpo.toLowerCase() !== 'centro';
 
-              {/* Botão Ver no Google Maps */}
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  [empresa.nome, empresa.endereco, empresa.cidade, empresa.estado].filter(Boolean).join(' ')
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-vertex-dark-card dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text transition-colors"
-              >
-                <MapPin className="w-3 h-3 text-red-500" />
-                <span>Ver no Google Maps</span>
-                <ArrowUpRight className="w-3 h-3" />
-              </a>
-            </div>
+            let mapsUrl = '';
+            if (temCoordenadas) {
+              mapsUrl = `https://www.google.com/maps/search/?api=1&query=${empresa.latitude},${empresa.longitude}`;
+            } else if (temEnderecoValido) {
+              mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([empresa.nome, enderecoLimpo, empresa.cidade, empresa.estado].filter(Boolean).join(' '))}`;
+            } else {
+              mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([empresa.nome, empresa.cidade, empresa.estado].filter(Boolean).join(' '))}`;
+            }
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-              <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Cidade / Estado:</span>
-                <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text mt-0.5 block">
-                  {[empresa.cidade, empresa.estado].filter(Boolean).join(' - ') || 'Não informado'}
-                </span>
-              </div>
+            return (
+              <div className="bg-white dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded-xl p-5 shadow-subtle space-y-3.5 transition-colors">
+                <div className="flex items-center justify-between border-b border-vertex-border/70 dark:border-vertex-dark-border pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-red-500" />
+                    <h3 className="text-xs font-bold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
+                      Área & Localização
+                    </h3>
+                  </div>
 
-              <div>
-                <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Endereço Completo:</span>
-                <span className="font-medium text-vertex-dark dark:text-vertex-dark-text mt-0.5 block bg-slate-50/50 dark:bg-vertex-dark-card/50 p-2.5 rounded border border-vertex-border/40 dark:border-vertex-dark-border/40">
-                  {empresa.endereco ? empresa.endereco.replace(/\s*\([^)]*\)/g, '').trim() : 'Centro'}
-                </span>
+                  {/* Botão Ver no Google Maps */}
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                      temCoordenadas
+                        ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800/40'
+                        : temEnderecoValido
+                        ? 'bg-slate-100 hover:bg-slate-200 dark:bg-vertex-dark-card dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text'
+                        : 'bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40'
+                    }`}
+                    title={
+                      temCoordenadas
+                        ? 'Ver ponto GPS exato no Google Maps'
+                        : temEnderecoValido
+                        ? 'Ver endereço no Google Maps'
+                        : 'Aviso: Localização exata não disponível. A busca abrirá o município de referência.'
+                    }
+                  >
+                    <MapPin className={`w-3.5 h-3.5 ${temCoordenadas ? 'text-blue-600 dark:text-blue-400' : temEnderecoValido ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'}`} />
+                    <span>{temCoordenadas ? 'Ver no Google Maps (GPS Exato)' : temEnderecoValido ? 'Ver no Google Maps' : 'Ver no Maps (Aproximado)'}</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                  </a>
+                </div>
+
+                {/* Aviso visual prévio ANTES do usuário clicar no mapinha */}
+                {!temEnderecoValido && !temCoordenadas && (
+                  <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-300">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold block">Atenção: Endereço exato não cadastrado</span>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400/90 mt-0.5 leading-relaxed">
+                        Este estabelecimento não possui rua/número detalhado nem coordenadas GPS nas bases oficiais. A localização no mapa será estimada com base no município de <strong>{empresa.cidade || 'referência'}</strong>.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                  <div>
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Cidade / Estado:</span>
+                    <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text mt-0.5 block">
+                      {[empresa.cidade, empresa.estado].filter(Boolean).join(' - ') || 'Não informado'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-vertex-muted dark:text-vertex-dark-muted block text-[11px] font-medium">Endereço Completo:</span>
+                    <div className="mt-0.5 bg-slate-50/50 dark:bg-vertex-dark-card/50 p-2.5 rounded border border-vertex-border/40 dark:border-vertex-dark-border/40">
+                      {temEnderecoValido ? (
+                        <span className="font-medium text-vertex-dark dark:text-vertex-dark-text block">
+                          {enderecoLimpo}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-medium text-[11px]">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                          <span>Endereço não informado (apenas município)</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Seção 2: NOTAS DA EMPRESA (/api/empresas/{idEmpresa}/notas) */}
           <div className="space-y-3">

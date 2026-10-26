@@ -9,7 +9,7 @@ public final class CidadeHelper {
 
     public record CidadeInfo(String nome, double lat, double lon, String ddd) {}
 
-    // Cidades atendidas e coordenadas de referência
+    // Exatamente as 6 cidades oficiais da comarca
     public static final List<CidadeInfo> CIDADES_CITADAS = List.of(
             new CidadeInfo("Laranjeiras do Sul", -25.4086, -52.4161, "42"),
             new CidadeInfo("Rio Bonito do Iguaçu", -25.4931, -52.5342, "42"),
@@ -19,6 +19,7 @@ public final class CidadeHelper {
             new CidadeInfo("Nova Laranjeiras", -25.3056, -52.5408, "42")
     );
 
+    // Raio euclidiano estrito para manter a busca exclusivamente nas cidades cadastradas (~13 km)
     public static final double RAIO_MAXIMO_GRAUS = 0.12;
 
     public static String removerAcentos(String str) {
@@ -32,6 +33,7 @@ public final class CidadeHelper {
 
     public static String normalizarCidade(String nomeCidade) {
         if (nomeCidade == null || nomeCidade.isBlank()) return null;
+
         String limpo = removerAcentos(nomeCidade).toLowerCase().trim();
 
         for (CidadeInfo c : CIDADES_CITADAS) {
@@ -43,7 +45,7 @@ public final class CidadeHelper {
 
         if (limpo.contains("porto barreiro")) return "Porto Barreiro";
         if (limpo.contains("nova laranjeiras")) return "Nova Laranjeiras";
-        if (limpo.contains("laranjeiras do sul") || limpo.equals("laranjeiras")) return "Laranjeiras do Sul";
+        if (limpo.contains("laranjeiras do sul") || limpo.equals("laranjeiras") || limpo.equals("lds")) return "Laranjeiras do Sul";
         if (limpo.contains("rio bonito")) return "Rio Bonito do Iguaçu";
         if (limpo.contains("cantagalo")) return "Cantagalo";
         if (limpo.contains("virmond")) return "Virmond";
@@ -65,10 +67,14 @@ public final class CidadeHelper {
     public static CidadeInfo identificarCidade(double lat, double lon, String cidadeInformada) {
         if (cidadeInformada != null && !cidadeInformada.isBlank()) {
             CidadeInfo info = buscarInfoPorNome(cidadeInformada);
-            if (info == null) {
-                return null;
+            if (info != null) {
+                return info;
             }
-            return info;
+            return null; // Rejeita qualquer cidade fora do cadastro oficial
+        }
+
+        if (Double.isNaN(lat) || Double.isNaN(lon) || (lat == 0.0 && lon == 0.0)) {
+            return null;
         }
 
         CidadeInfo maisProxima = null;
@@ -87,5 +93,20 @@ public final class CidadeHelper {
         }
 
         return null;
+    }
+
+    public static String formatarNomeCidade(String nome) {
+        if (nome == null || nome.isBlank()) return "";
+        String[] palavras = nome.trim().toLowerCase().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String p : palavras) {
+            if (p.isEmpty()) continue;
+            if (p.equals("do") || p.equals("da") || p.equals("dos") || p.equals("das") || p.equals("de")) {
+                sb.append(p).append(" ");
+            } else {
+                sb.append(Character.toUpperCase(p.charAt(0))).append(p.substring(1)).append(" ");
+            }
+        }
+        return sb.toString().trim();
     }
 }

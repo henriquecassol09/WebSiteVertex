@@ -139,14 +139,18 @@ record PesquisaResponse(
     String telefone,
     String email,
     String cnpj,
-    String site
+    String site,
+    Double latitude,
+    Double longitude,
+    Boolean localizacaoConfirmada,
+    String tipoLocalizacao
 ) {
     private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
 
     static PesquisaResponse from(Pesquisa p) {
         String raw = p.getRegiao();
-        String endereco = "Centro";
-        String cidade = "Laranjeiras do Sul";
+        String endereco = "";
+        String cidade = null;
         String estado = "PR";
         String categoria = "Comércio Local";
         String horario = "Não informado";
@@ -154,19 +158,41 @@ record PesquisaResponse(
         String emailEmpresa = "Não informado";
         String cnpj = null;
         String site = "";
+        Double latitude = null;
+        Double longitude = null;
+        Boolean localizacaoConfirmada = null;
+        String tipoLocalizacao = null;
 
         if (raw != null && raw.trim().startsWith("{")) {
             try {
                 com.fasterxml.jackson.databind.JsonNode node = MAPPER.readTree(raw);
-                endereco = node.path("endereco").asText(endereco);
-                cidade = node.path("cidade").asText(cidade);
-                estado = node.path("estado").asText(estado);
+                endereco = node.path("endereco").asText("").trim();
+                cidade = node.path("cidade").asText(null);
+                estado = node.path("estado").asText("PR");
                 categoria = node.path("categoria").asText(categoria);
                 horario = node.path("horario").asText(horario);
                 telefone = node.path("telefone").asText(telefone);
                 emailEmpresa = node.path("email").asText(emailEmpresa);
                 cnpj = node.path("cnpj").asText(null);
                 site = node.path("site").asText("");
+
+                if (node.hasNonNull("latitude")) {
+                    latitude = node.path("latitude").asDouble();
+                } else if (node.hasNonNull("lat")) {
+                    latitude = node.path("lat").asDouble();
+                }
+                if (node.hasNonNull("longitude")) {
+                    longitude = node.path("longitude").asDouble();
+                } else if (node.hasNonNull("lon")) {
+                    longitude = node.path("lon").asDouble();
+                }
+
+                if (node.hasNonNull("localizacaoConfirmada")) {
+                    localizacaoConfirmada = node.path("localizacaoConfirmada").asBoolean();
+                }
+                if (node.hasNonNull("tipoLocalizacao")) {
+                    tipoLocalizacao = node.path("tipoLocalizacao").asText();
+                }
             } catch (Exception ignored) {}
         } else if (raw != null && !raw.isBlank()) {
             if (raw.contains("(") && raw.contains(")")) {
@@ -179,34 +205,64 @@ record PesquisaResponse(
                     if (partes.length > 0 && !partes[0].isBlank()) cidade = partes[0].trim();
                     if (partes.length > 1 && !partes[1].isBlank()) estado = partes[1].trim();
                 }
-            } else if (raw.toLowerCase().contains("porto barreiro")) {
-                cidade = "Porto Barreiro";
-                endereco = raw.trim();
             } else {
                 endereco = raw.trim();
             }
         }
 
+        // Identificação por menção na consulta, endereço ou texto bruto da região
+        String textoBusca = ((p.getConsulta() != null ? p.getConsulta() : "") + " "
+                + (endereco != null ? endereco : "") + " "
+                + (raw != null ? raw : "")).toLowerCase();
+
+        for (CidadeHelper.CidadeInfo c : CidadeHelper.CIDADES_CITADAS) {
+            if (textoBusca.contains(c.nome().toLowerCase())) {
+                cidade = c.nome();
+                break;
+            }
+        }
+
+        // Se for posto de combustíveis ou estabelecimento de rodovia e endereço estava como fictício "Centro":
+        if ((textoBusca.contains("posto") || textoBusca.contains("shell") || textoBusca.contains("combustivel") || textoBusca.contains("br-277") || textoBusca.contains("rodovia"))
+                && (endereco == null || endereco.isBlank() || endereco.equalsIgnoreCase("Centro"))) {
+            if (latitude != null && longitude != null) {
+                if (longitude > -52.45 && longitude < -52.00 && latitude > -25.65 && latitude < -25.32) {
+                    endereco = "Rodovia BR-277";
+                }
+            } else if (textoBusca.contains("br-277") || textoBusca.contains("br 277")) {
+                endereco = "Rodovia BR-277";
+            }
+        }
+
+        // Removemos o "Centro" padrão fictício para não iludir o usuário quando o logradouro não for real
+        if (endereco != null && endereco.equalsIgnoreCase("Centro")) {
+            endereco = "";
+        }
+
+        // Normalização precisa da cidade
         String cidadeNormalizada = CidadeHelper.normalizarCidade(cidade);
         if (cidadeNormalizada != null) {
             cidade = cidadeNormalizada;
-        } else {
-            String textoBusca = (p.getConsulta() + " " + endereco + " " + raw).toLowerCase();
-            for (CidadeHelper.CidadeInfo c : CidadeHelper.CIDADES_CITADAS) {
-                if (textoBusca.contains(c.nome().toLowerCase())) {
-                    cidadeNormalizada = c.nome();
-                    break;
-                }
-            }
-            cidade = (cidadeNormalizada != null) ? cidadeNormalizada : "Laranjeiras do Sul";
+        } else if (cidade == null || cidade.isBlank()) {
+            cidade = "Laranjeiras do Sul";
         }
 
-        if (cidade.equalsIgnoreCase("Laranjeiras do Sul") && (
-                (p.getConsulta() != null && p.getConsulta().toLowerCase().contains("porto barreiro")) ||
-                (endereco != null && endereco.toLowerCase().contains("porto barreiro")) ||
-                (raw != null && raw.toLowerCase().contains("porto barreiro"))
-        )) {
-            cidade = "Porto Barreiro";
+        boolean temCoordenadas = (latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0));
+        boolean temEndereco = (endereco != null && !endereco.isBlank());
+
+        if (localizacaoConfirmada == null) {
+            localizacaoConfirmada = temCoordenadas || temEndereco;
+        }
+        if (tipoLocalizacao == null) {
+            if (temCoordenadas && temEndereco) {
+                tipoLocalizacao = "EXATA";
+            } else if (temCoordenadas) {
+                tipoLocalizacao = "GPS";
+            } else if (temEndereco) {
+                tipoLocalizacao = "ENDERECO";
+            } else {
+                tipoLocalizacao = "APROXIMADA";
+            }
         }
 
         String regiaoFormatada = cidade + " - " + estado;
@@ -226,7 +282,11 @@ record PesquisaResponse(
             telefone,
             emailEmpresa,
             cnpj,
-            site
+            site,
+            latitude,
+            longitude,
+            localizacaoConfirmada,
+            tipoLocalizacao
         );
     }
 }
@@ -244,19 +304,72 @@ record EmpresaRequest(
     @Size(max = 255) String site,
     @Size(max = 4000) String descricao,
     @Size(max = 20) String cnpj,
-    String idPesquisa
+    String idPesquisa,
+    Double latitude,
+    Double longitude
 ) {}
 
 record EmpresaResponse(
     String idEmpresa, String nome, String categoria, String cidade, String estado,
     String endereco, String telefone, String email, String site, String descricao,
-    String cnpj, Instant criadoEm, Instant atualizadoEm
+    String cnpj, Instant criadoEm, Instant atualizadoEm,
+    Double latitude, Double longitude, Boolean localizacaoConfirmada, String tipoLocalizacao
 ) {
+    private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
+
     static EmpresaResponse from(Empresa e) {
         String cat = CategoriaDetector.refinar(e.getCategoria(), e.getNome());
-        return new EmpresaResponse(e.getIdEmpresa(), e.getNome(), cat, e.getCidade(),
-                e.getEstado(), e.getEndereco(), e.getTelefone(), e.getEmail(), e.getSite(),
-                e.getDescricao(), e.getCnpj(), e.getCriadoEm(), e.getAtualizadoEm());
+        String cidade = e.getCidade();
+        String endereco = e.getEndereco() != null ? e.getEndereco().trim() : "";
+        if (endereco.equalsIgnoreCase("Centro")) {
+            endereco = "";
+        }
+
+        String nomeLow = (e.getNome() != null ? e.getNome() : "").toLowerCase();
+        if (nomeLow.contains("cantagalo")) {
+            cidade = "Cantagalo";
+        } else if (nomeLow.contains("virmond")) {
+            cidade = "Virmond";
+        } else if (nomeLow.contains("porto barreiro")) {
+            cidade = "Porto Barreiro";
+        } else if (nomeLow.contains("nova laranjeiras")) {
+            cidade = "Nova Laranjeiras";
+        } else if (nomeLow.contains("rio bonito")) {
+            cidade = "Rio Bonito do Iguaçu";
+        } else if (nomeLow.contains("laranjeiras do sul")) {
+            cidade = "Laranjeiras do Sul";
+        }
+
+        Double lat = null;
+        Double lon = null;
+        Boolean confirmada = null;
+        String tipo = null;
+
+        if (e.getDadosBrutos() != null && e.getDadosBrutos().trim().startsWith("{")) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode n = MAPPER.readTree(e.getDadosBrutos());
+                if (n.hasNonNull("latitude")) lat = n.path("latitude").asDouble();
+                else if (n.hasNonNull("lat")) lat = n.path("lat").asDouble();
+                if (n.hasNonNull("longitude")) lon = n.path("longitude").asDouble();
+                else if (n.hasNonNull("lon")) lon = n.path("lon").asDouble();
+                if (n.hasNonNull("localizacaoConfirmada")) confirmada = n.path("localizacaoConfirmada").asBoolean();
+                if (n.hasNonNull("tipoLocalizacao")) tipo = n.path("tipoLocalizacao").asText();
+            } catch (Exception ignored) {}
+        }
+
+        boolean temCoords = (lat != null && lon != null && (lat != 0.0 || lon != 0.0));
+        boolean temEndereco = (!endereco.isBlank());
+        if (confirmada == null) confirmada = temCoords || temEndereco;
+        if (tipo == null) {
+            tipo = (temCoords && temEndereco) ? "EXATA" : (temCoords ? "GPS" : (temEndereco ? "ENDERECO" : "APROXIMADA"));
+        }
+
+        return new EmpresaResponse(
+                e.getIdEmpresa(), e.getNome(), cat, cidade,
+                e.getEstado(), endereco, e.getTelefone(), e.getEmail(), e.getSite(),
+                e.getDescricao(), e.getCnpj(), e.getCriadoEm(), e.getAtualizadoEm(),
+                lat, lon, confirmada, tipo
+        );
     }
 }
 

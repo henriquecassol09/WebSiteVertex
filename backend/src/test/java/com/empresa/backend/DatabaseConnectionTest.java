@@ -29,7 +29,6 @@ class DatabaseConnectionTest {
             System.out.println("CONEXÃO COM O NEON ESTABELECIDA COM SUCESSO!");
             System.out.println("PostgreSQL: " + rs.getString(1));
             System.out.println("Database:   " + rs.getString(2));
-            System.out.println("User:       " + rs.getString(3));
             System.out.println("==================================================");
         }
     }

@@ -193,10 +193,31 @@ public class ProspeccaoService {
                 continue;
             }
 
-            double lat = el.path("lat").asDouble(el.path("center").path("lat").asDouble(-25.4086));
-            double lon = el.path("lon").asDouble(el.path("center").path("lon").asDouble(-52.4161));
+            double lat = el.path("lat").asDouble(el.path("center").path("lat").asDouble(Double.NaN));
+            double lon = el.path("lon").asDouble(el.path("center").path("lon").asDouble(Double.NaN));
             
-            CidadeHelper.CidadeInfo cidadeInfo = CidadeHelper.identificarCidade(lat, lon, tags.path("addr:city").asText(null));
+            String cidadeTag = tags.path("addr:city").asText(tags.path("addr:municipality").asText(tags.path("is_in:city").asText(null)));
+            
+            String nomeLow = nome.toLowerCase();
+            if (cidadeTag != null && !cidadeTag.isBlank() && !CidadeHelper.isCidadeCitada(cidadeTag)) {
+                continue; // Obrigatório pertencer exclusivamente às cidades cadastradas
+            }
+
+            if (nomeLow.contains("cantagalo")) {
+                cidadeTag = "Cantagalo";
+            } else if (nomeLow.contains("virmond")) {
+                cidadeTag = "Virmond";
+            } else if (nomeLow.contains("porto barreiro")) {
+                cidadeTag = "Porto Barreiro";
+            } else if (nomeLow.contains("nova laranjeiras")) {
+                cidadeTag = "Nova Laranjeiras";
+            } else if (nomeLow.contains("rio bonito")) {
+                cidadeTag = "Rio Bonito do Iguaçu";
+            } else if (nomeLow.contains("laranjeiras do sul")) {
+                cidadeTag = "Laranjeiras do Sul";
+            }
+
+            CidadeHelper.CidadeInfo cidadeInfo = CidadeHelper.identificarCidade(lat, lon, cidadeTag);
             if (cidadeInfo == null) {
                 continue;
             }
@@ -205,7 +226,7 @@ public class ProspeccaoService {
             String estado = "PR";
             String dddPadrao = cidadeInfo.ddd();
 
-            String enderecoLimpo = extrairEnderecoLimpo(tags);
+            String enderecoLimpo = extrairEnderecoLimpo(tags, nome, lat, lon);
             String categoria = CategoriaDetector.detectar(tags, nome);
             String horario = formatarHorario(tags.path("opening_hours").asText(null));
 
@@ -292,6 +313,14 @@ public class ProspeccaoService {
                 if (razaoSocialOficial != null && !razaoSocialOficial.isBlank()) {
                     meta.put("razaoSocial", razaoSocialOficial);
                 }
+                boolean temCoords = (!Double.isNaN(lat) && !Double.isNaN(lon) && (lat != 0.0 || lon != 0.0));
+                if (temCoords) {
+                    meta.put("latitude", String.valueOf(lat));
+                    meta.put("longitude", String.valueOf(lon));
+                }
+                boolean temEndereco = (enderecoLimpo != null && !enderecoLimpo.isBlank() && !enderecoLimpo.equalsIgnoreCase("Centro"));
+                meta.put("localizacaoConfirmada", String.valueOf(temCoords || temEndereco));
+                meta.put("tipoLocalizacao", (temCoords && temEndereco) ? "EXATA" : (temCoords ? "GPS" : (temEndereco ? "ENDERECO" : "APROXIMADA")));
 
                 String regiaoJson = objectMapper.writeValueAsString(meta);
 
@@ -903,13 +932,53 @@ public class ProspeccaoService {
         return cnpj;
     }
 
-    private String extrairEnderecoLimpo(JsonNode tags) {
+    private String extrairEnderecoLimpo(JsonNode tags, String nome, double lat, double lon) {
         String rua = tags.path("addr:street").asText("").trim();
         String numero = tags.path("addr:housenumber").asText("").trim();
-        if (rua.isEmpty()) {
-            return "Centro";
+        String km = tags.path("addr:km").asText(tags.path("km").asText("")).trim();
+
+        if (!rua.isEmpty()) {
+            if (!numero.isEmpty()) {
+                return rua + ", " + numero;
+            } else if (!km.isEmpty()) {
+                return rua + ", Km " + km;
+            }
+            return rua;
         }
-        return numero.isEmpty() ? rua : rua + ", " + numero;
+
+        String place = tags.path("addr:place").asText("").trim();
+        if (!place.isEmpty()) {
+            return !numero.isEmpty() ? place + ", " + numero : place;
+        }
+
+        String refRodovia = tags.path("ref").asText("").trim();
+        if (refRodovia.toUpperCase().startsWith("BR-") || refRodovia.toUpperCase().startsWith("PR-")) {
+            String prefixo = "Rodovia " + refRodovia;
+            if (!km.isEmpty()) return prefixo + ", Km " + km;
+            if (!numero.isEmpty()) return prefixo + ", " + numero;
+            return prefixo;
+        }
+
+        String nomeLow = (nome != null ? nome : "").toLowerCase();
+        String amenity = tags.path("amenity").asText("").toLowerCase();
+        boolean isPosto = amenity.equals("fuel") || nomeLow.contains("posto ") || nomeLow.startsWith("posto") || nomeLow.contains("combustivel");
+
+        if (nomeLow.contains("br-277") || nomeLow.contains("br 277") || tags.path("ref").asText("").contains("277")) {
+            return !km.isEmpty() ? "Rodovia BR-277, Km " + km : "Rodovia BR-277";
+        }
+
+        if (isPosto && !Double.isNaN(lat) && !Double.isNaN(lon)) {
+            if (lon > -52.48 && lon < -52.00 && lat > -25.65 && lat < -25.32) {
+                return "Rodovia BR-277";
+            }
+        }
+
+        String bairro = tags.path("addr:suburb").asText(tags.path("addr:district").asText("")).trim();
+        if (!bairro.isEmpty()) {
+            return bairro;
+        }
+
+        return "";
     }
 
     private String formatarHorario(String raw) {
@@ -1059,7 +1128,10 @@ public class ProspeccaoService {
                         email = "Não informado";
                     }
 
-                    String endereco = dadosOficiais != null ? dadosOficiais.get("endereco") : "Centro";
+                    String endereco = (dadosOficiais != null && dadosOficiais.get("endereco") != null) ? dadosOficiais.get("endereco").trim() : "";
+                    if (endereco.equalsIgnoreCase("Centro")) {
+                        endereco = "";
+                    }
                     String cidadeFinal = cidadeNormalizada;
                     String estadoFinal = "PR";
 
@@ -1080,6 +1152,9 @@ public class ProspeccaoService {
                     if (razaoSocial != null && !razaoSocial.isBlank()) {
                         meta.put("razaoSocial", razaoSocial);
                     }
+                    boolean temEndereco = (endereco != null && !endereco.isBlank());
+                    meta.put("localizacaoConfirmada", String.valueOf(temEndereco));
+                    meta.put("tipoLocalizacao", temEndereco ? "ENDERECO" : "APROXIMADA");
 
                     String regiaoJson = objectMapper.writeValueAsString(meta);
 

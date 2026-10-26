@@ -19,7 +19,8 @@ import {
   MapPin,
   Globe2,
   Check,
-  RotateCcw
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
 import { sanitizarUrl } from '../utils/security';
@@ -98,8 +99,16 @@ export const EmpresasView = () => {
   ];
 
   const cidadesDisponiveis = React.useMemo(() => {
-    return CIDADES_REGIAO;
-  }, []);
+    const setCidades = new Set(CIDADES_REGIAO);
+    empresas.forEach((e) => {
+      const c = (e.cidade || '').trim();
+      const cLow = c.toLowerCase();
+      if (c && !cLow.includes('candoi') && !cLow.includes('candói')) {
+        setCidades.add(c);
+      }
+    });
+    return Array.from(setCidades);
+  }, [empresas]);
 
   const toggleCidade = (cidade) => {
     setFiltroCidades((prev) =>
@@ -594,9 +603,23 @@ export const EmpresasView = () => {
                       {detectarCategoria(emp.categoria, emp.nome)}
                     </td>
 
-                    {/* Cidade e Estado */}
+                    {/* Cidade e Endereço */}
                     <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text">
-                      {[emp.cidade, emp.estado].filter(Boolean).join(' - ') || '-'}
+                      <div className="max-w-[200px]">
+                        {emp.endereco && emp.endereco.trim() && emp.endereco.toLowerCase() !== 'centro' ? (
+                          <span className="block text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text truncate">
+                            {emp.endereco}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40">
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span>Sem endereço exato</span>
+                          </span>
+                        )}
+                        <span className="block text-[11px] text-vertex-muted dark:text-vertex-dark-muted truncate mt-0.5">
+                          {[emp.cidade, emp.estado].filter(Boolean).join(' - ') || '-'}
+                        </span>
+                      </div>
                     </td>
 
                     {/* Telefone */}

@@ -475,6 +475,11 @@ class EmpresaService {
             throw new IllegalArgumentException("Esta empresa já foi salva no sistema");
         }
 
+        String dadosBrutos = null;
+        if (req.latitude() != null && req.longitude() != null) {
+            dadosBrutos = String.format(java.util.Locale.US, "{\"latitude\": %.7f, \"longitude\": %.7f, \"localizacaoConfirmada\": true}", req.latitude(), req.longitude());
+        }
+
         Empresa empresa = Empresa.builder()
                 .idUsuario(idUsuario)
                 .idPesquisa(req.idPesquisa())
@@ -488,6 +493,7 @@ class EmpresaService {
                 .site(req.site())
                 .descricao(req.descricao())
                 .cnpj(req.cnpj())
+                .dadosBrutos(dadosBrutos)
                 .build();
         return EmpresaResponse.from(empresaRepository.save(empresa));
     }

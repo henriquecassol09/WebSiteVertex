@@ -19,7 +19,10 @@ import {
   X,
   Check,
   RotateCcw,
-  Clock
+  Clock,
+  AlertTriangle,
+  MapPinOff,
+  ArrowUpRight
 } from 'lucide-react';
 import { detectarCategoria } from '../utils/categoriaHelper';
 import { sanitizarUrl } from '../utils/security';
@@ -146,7 +149,7 @@ export const PesquisasView = () => {
     try {
       const cidade = p.cidade || 'Laranjeiras do Sul';
       const estado = p.estado || 'PR';
-      const endereco = p.endereco || 'Centro';
+      const endereco = (p.endereco && p.endereco.toLowerCase() !== 'centro') ? p.endereco.trim() : '';
       const categoria = detectarCategoria(p.categoria, p.consulta);
       const horario = p.horario || 'Não informado';
 
@@ -170,7 +173,9 @@ export const PesquisasView = () => {
           ? `Atividade: ${categoria}. Horário de funcionamento: ${horario}.`
           : `Atividade: ${categoria}. Horário de funcionamento: ${horario}. Sem website registrado.`,
         cnpj: p.cnpj || null,
-        idPesquisa: p.idPesquisa
+        idPesquisa: p.idPesquisa,
+        latitude: p.latitude || null,
+        longitude: p.longitude || null
       };
 
       await api.empresas.criar(payload);
@@ -224,8 +229,16 @@ export const PesquisasView = () => {
   ];
 
   const cidadesDisponiveis = React.useMemo(() => {
-    return CIDADES_REGIAO;
-  }, []);
+    const setCidades = new Set(CIDADES_REGIAO);
+    pesquisas.forEach((p) => {
+      const c = (p.cidade || '').trim();
+      const cLow = c.toLowerCase();
+      if (c && !cLow.includes('candoi') && !cLow.includes('candói')) {
+        setCidades.add(c);
+      }
+    });
+    return Array.from(setCidades);
+  }, [pesquisas]);
 
   const toggleCidade = (cidade) => {
     setFiltroCidades((prev) =>
@@ -661,15 +674,68 @@ export const PesquisasView = () => {
                       </td>
 
                       <td className="py-3.5 px-3.5 xl:px-4 text-vertex-body dark:text-vertex-dark-text select-text">
-                        <div className="flex items-start gap-1.5">
-                          <MapPin className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
-                          <div className="max-w-[200px] xl:max-w-xs">
-                            <span className="block font-medium truncate">{p.endereco || 'Centro'}</span>
-                            <span className="block text-[11px] text-vertex-muted dark:text-vertex-dark-muted truncate">
-                              {[p.cidade, p.estado].filter(Boolean).join(' - ') || p.regiao || 'Paraná'}
-                            </span>
-                          </div>
-                        </div>
+                        {(() => {
+                          const temCoords = p.latitude && p.longitude && (p.latitude !== 0 || p.longitude !== 0);
+                          const enderecoLimpo = p.endereco ? p.endereco.replace(/\s*\([^)]*\)/g, '').trim() : '';
+                          const temEnderecoValido = enderecoLimpo.length > 0 && enderecoLimpo.toLowerCase() !== 'centro';
+
+                          let mapsUrl = null;
+                          if (temCoords) {
+                            mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
+                          } else if (temEnderecoValido) {
+                            mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.consulta, enderecoLimpo, p.cidade, p.estado].filter(Boolean).join(' '))}`;
+                          }
+
+                          return (
+                            <div className="max-w-[200px] xl:max-w-xs space-y-0.5">
+                              {temEnderecoValido ? (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="block font-medium text-vertex-dark dark:text-vertex-dark-text truncate text-xs">
+                                    {enderecoLimpo}
+                                  </span>
+                                  {temCoords && (
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-200 dark:border-emerald-800/40" title="Localização exata via GPS">
+                                      GPS
+                                    </span>
+                                  )}
+                                </div>
+                              ) : temCoords ? (
+                                <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800/40">
+                                  <MapPin className="w-2.5 h-2.5" />
+                                  <span>Ponto GPS Confirmado</span>
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40" title="Este estabelecimento não possui logradouro/número nem coordenadas exatas nos registros">
+                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                  <span>Endereço não informado</span>
+                                </div>
+                              )}
+
+                              <span className="block text-[11px] text-slate-600 dark:text-slate-300 font-medium truncate">
+                                {[p.cidade, p.estado].filter(Boolean).join(' - ') || 'Paraná'}
+                              </span>
+
+                              {mapsUrl ? (
+                                <a
+                                  href={mapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={temCoords ? `Ver ponto GPS no Google Maps (${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)})` : 'Ver endereço no Google Maps'}
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-vertex-orange hover:text-vertex-orange-hover hover:underline cursor-pointer pt-0.5"
+                                >
+                                  <MapPin className="w-2.5 h-2.5 shrink-0" />
+                                  <span>{temCoords ? 'Ver no Maps (Ponto Exato)' : 'Ver no Maps'}</span>
+                                  <ArrowUpRight className="w-2.5 h-2.5" />
+                                </a>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-vertex-muted dark:text-vertex-dark-muted pt-0.5" title="Localização no mapa não disponível sem endereço ou coordenadas">
+                                  <MapPinOff className="w-2.5 h-2.5 text-slate-400" />
+                                  <span>Sem mapa exato</span>
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       <td className="py-3.5 px-3.5 xl:px-4 text-vertex-body dark:text-vertex-dark-text select-text">

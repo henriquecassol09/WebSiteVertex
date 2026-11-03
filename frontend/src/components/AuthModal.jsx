@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { VertexLogo } from './Logo';
 import { TermosUsoModal } from './TermosUsoModal';
 import { SuporteModal } from './SuporteModal';
-import { X, Lock, Mail, User, Check, AlertCircle, KeyRound, ArrowLeft, RefreshCw, Loader2, LifeBuoy } from 'lucide-react';
+import { X, Lock, Mail, User, Check, AlertCircle, KeyRound, ArrowLeft, RefreshCw, Loader2, LifeBuoy, Eye, EyeOff } from 'lucide-react';
 
 export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail = '' }) => {
   const [mode, setMode] = useState(initialMode); // 'login' | 'register' | 'verify'
@@ -13,6 +13,8 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
   const [email, setEmail] = useState(initialEmail);
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [showSenha, setShowSenha] = useState(false);
+  const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
   const [codigo, setCodigo] = useState('');
   const [aceitouTermos, setAceitouTermos] = useState(false);
   const [termosModalAberto, setTermosModalAberto] = useState(false);
@@ -32,6 +34,8 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
       setEmail(initialEmail || '');
       setSenha('');
       setConfirmarSenha('');
+      setShowSenha(false);
+      setShowConfirmarSenha(false);
       setCodigo('');
       setAceitouTermos(false);
       setTermosModalAberto(false);
@@ -149,31 +153,34 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-vertex-dark/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in overflow-y-auto">
       <div className="relative bg-white dark:bg-vertex-dark-card border border-vertex-border dark:border-vertex-dark-border shadow-modal rounded-2xl max-w-md w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col my-auto overflow-hidden transition-colors duration-300">
         {/* Header do Modal */}
-        <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 flex items-start justify-between border-b border-vertex-border-light dark:border-vertex-dark-border shrink-0">
-          <div className="pr-2">
-            <VertexLogo className="h-6 w-auto mb-1" textClassName="text-sm font-semibold dark:text-white" />
-            <h2 className="text-sm sm:text-base font-bold text-vertex-dark dark:text-vertex-dark-text">
-              {mode === 'verify' 
-                ? 'Verificar E-mail'
-                : mode === 'register' 
-                  ? 'Criar Conta Vertex' 
-                  : 'Trocar de Conta'}
-            </h2>
-            <p className="text-[11px] sm:text-xs text-vertex-muted dark:text-vertex-dark-muted mt-0.5 leading-relaxed">
-              {mode === 'verify'
-                ? `Enviamos um código de 6 dígitos para ${email}`
-                : mode === 'register'
-                  ? 'Preencha os dados abaixo para cadastrar uma nova conta'
-                  : 'Insira suas credenciais para acessar com outra conta'}
-            </p>
-          </div>
+        <div className="relative px-4 sm:px-6 pt-5 pb-4 border-b border-vertex-border-light dark:border-vertex-dark-border shrink-0 text-center">
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 sm:p-2 rounded-lg text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface transition-colors shrink-0"
+            className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 p-1.5 sm:p-2 rounded-lg text-vertex-muted dark:text-vertex-dark-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text hover:bg-slate-100 dark:hover:bg-vertex-dark-surface transition-colors shrink-0"
             title="Fechar"
           >
             <X className="w-5 h-5" />
           </button>
+
+          <div className="flex items-center justify-center mb-2.5">
+            <VertexLogo className="w-32 sm:w-36 h-8 sm:h-9" />
+          </div>
+
+          <h2 className="text-sm sm:text-base font-bold text-vertex-dark dark:text-vertex-dark-text">
+            {mode === 'verify' 
+              ? 'Verificar E-mail'
+              : mode === 'register' 
+                ? 'Criar Conta Vertex' 
+                : 'Trocar de Conta'}
+          </h2>
+          <p className="text-[11px] sm:text-xs text-vertex-muted dark:text-vertex-dark-muted mt-0.5 leading-relaxed max-w-xs sm:max-w-sm mx-auto">
+            {mode === 'verify'
+              ? `Enviamos um código de 6 dígitos para ${email}`
+              : mode === 'register'
+                ? 'Preencha os dados abaixo para cadastrar uma nova conta'
+                : 'Insira suas credenciais para acessar com outra conta'}
+          </p>
         </div>
 
         {/* Form com Scroll Interno Responsivo */}
@@ -297,16 +304,25 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                   Senha de Acesso <span className="text-vertex-orange">*</span>
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-vertex-muted dark:text-vertex-dark-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Lock className="w-4 h-4 text-vertex-muted dark:text-vertex-dark-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="password"
+                    type={showSenha ? 'text' : 'password'}
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     placeholder="••••••••••••"
-                    className={`w-full pl-9 pr-3 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
+                    className={`w-full pl-9 pr-10 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange ${
                       errors.senha ? 'border-red-400 bg-red-50/20' : 'border-vertex-border dark:border-vertex-dark-border'
                     }`}
                   />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowSenha(!showSenha)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-vertex-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text p-1 cursor-pointer transition-colors"
+                    aria-label={showSenha ? 'Ocultar senha' : 'Ver senha'}
+                  >
+                    {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
                 {errors.senha && <p className="text-[11px] text-red-500 mt-1">{errors.senha}</p>}
               </div>
@@ -336,16 +352,16 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                     )}
                   </div>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-vertex-muted dark:text-vertex-dark-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-4 h-4 text-vertex-muted dark:text-vertex-dark-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
-                      type="password"
+                      type={showConfirmarSenha ? 'text' : 'password'}
                       value={confirmarSenha}
                       onChange={(e) => {
                         setConfirmarSenha(e.target.value);
                         if (errors.confirmarSenha) setErrors((prev) => ({ ...prev, confirmarSenha: '' }));
                       }}
                       placeholder="••••••••••••"
-                      className={`w-full pl-9 pr-8 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-colors ${
+                      className={`w-full pl-9 pr-10 min-h-[42px] py-2 text-xs sm:text-sm rounded-lg border bg-white dark:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text focus:outline-none focus:ring-2 focus:ring-vertex-orange/20 focus:border-vertex-orange transition-colors ${
                         errors.confirmarSenha 
                           ? 'border-red-400 bg-red-50/20' 
                           : (confirmarSenha && senha === confirmarSenha)
@@ -355,9 +371,15 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
                               : 'border-vertex-border dark:border-vertex-dark-border'
                       }`}
                     />
-                    {confirmarSenha && senha === confirmarSenha && (
-                      <Check className="w-4 h-4 text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />
-                    )}
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-vertex-muted hover:text-vertex-dark dark:hover:text-vertex-dark-text p-1 cursor-pointer transition-colors"
+                      aria-label={showConfirmarSenha ? 'Ocultar senha' : 'Ver senha'}
+                    >
+                      {showConfirmarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   {errors.confirmarSenha && <p className="text-[11px] text-red-500 mt-1">{errors.confirmarSenha}</p>}
                 </div>

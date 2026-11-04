@@ -254,8 +254,12 @@ record PesquisaResponse(
             latitude = null;
             longitude = null;
         }
-        localizacaoConfirmada = temCoordenadas;
-        tipoLocalizacao = temCoordenadas ? "EXATA" : "APROXIMADA";
+
+        boolean temEnderecoValido = (endereco != null && !endereco.isBlank() && !endereco.equalsIgnoreCase("Centro"));
+        boolean temEnderecoExato = temEnderecoValido && (endereco.matches(".*\\d+.*") || endereco.toLowerCase().contains("rodovia") || endereco.toLowerCase().contains("km") || endereco.toLowerCase().contains("rua") || endereco.toLowerCase().contains("avenida") || endereco.toLowerCase().contains("av."));
+
+        localizacaoConfirmada = temCoordenadas || temEnderecoExato;
+        tipoLocalizacao = temCoordenadas ? "EXATA" : (temEnderecoExato ? "ENDERECO" : "APROXIMADA");
 
         String regiaoFormatada = cidade + " - " + estado;
         String categoriaRefinada = CategoriaDetector.refinar(categoria, p.getConsulta());
@@ -354,8 +358,12 @@ record EmpresaResponse(
             lat = null;
             lon = null;
         }
-        confirmada = temCoords;
-        tipo = temCoords ? "EXATA" : "APROXIMADA";
+
+        boolean temEnderecoValido = (!endereco.isBlank() && !endereco.equalsIgnoreCase("Centro"));
+        boolean temEnderecoExato = temEnderecoValido && (endereco.matches(".*\\d+.*") || endereco.toLowerCase().contains("rodovia") || endereco.toLowerCase().contains("km") || endereco.toLowerCase().contains("rua") || endereco.toLowerCase().contains("avenida") || endereco.toLowerCase().contains("av."));
+
+        confirmada = temCoords || temEnderecoExato;
+        tipo = temCoords ? "EXATA" : (temEnderecoExato ? "ENDERECO" : "APROXIMADA");
 
         return new EmpresaResponse(
                 e.getIdEmpresa(), e.getNome(), cat, cidade,

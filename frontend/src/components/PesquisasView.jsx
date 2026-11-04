@@ -91,11 +91,11 @@ export const PesquisasView = () => {
   const handleRealizarBusca = async () => {
     setSegundosDecorridos(0);
     setBuscandoOverpass(true);
-    toast.info('Buscando estabelecimentos em todas as 6 cidades da região...', 8000);
+    toast.info('Busca completa da região iniciada. Estimativa de tempo: de 1 a 3 minutos.', 10000);
 
     try {
       await api.pesquisas.prospectarRegiao();
-      toast.success('Busca concluída com sucesso!');
+      toast.success('Busca completa concluída com sucesso!');
       await carregarPesquisas();
     } catch (err) {
       toast.error(err.message || 'Erro ao realizar busca');
@@ -366,23 +366,23 @@ export const PesquisasView = () => {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-vertex-dark dark:text-vertex-dark-text">
-                  Buscando novos estabelecimentos na região...
+                  Buscando todas as empresas na região (Busca Total)...
                 </h3>
                 <p className="text-xs text-vertex-muted dark:text-vertex-dark-muted mt-0.5 leading-relaxed">
-                  Consultando dados geográficos e cadastrais em 6 cidades (Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras).
+                  Estimativa de tempo: <strong>1 a 3 minutos</strong>. Varrendo em profundidade estabelecimentos comerciais em Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras.
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-vertex-orange self-end sm:self-center shrink-0 bg-vertex-orange/10 dark:bg-vertex-orange/20 px-2.5 py-1 rounded">
               <Clock className="w-3.5 h-3.5" />
-              <span>Tempo de busca: {segundosDecorridos}s</span>
+              <span>Tempo decorrido: {segundosDecorridos}s (1 a 3 min)</span>
             </div>
           </div>
 
-          <div className="w-full bg-vertex-orange/20 dark:bg-vertex-orange/20 h-1.5 rounded-full overflow-hidden mt-3.5">
+          <div className="w-full bg-vertex-orange/20 dark:bg-vertex-orange/20 h-2 rounded-full overflow-hidden mt-3.5">
             <div 
               className="bg-vertex-orange h-full rounded-full transition-all duration-1000 ease-out"
-              style={{ width: `${Math.min(95, Math.max(5, (segundosDecorridos / 120) * 100))}%` }}
+              style={{ width: `${Math.min(95, Math.max(5, (segundosDecorridos / 180) * 100))}%` }}
             />
           </div>
         </div>

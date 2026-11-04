@@ -71,7 +71,7 @@ public final class CidadeHelper {
         CidadeInfo info = buscarInfoPorNome(nomeCidade);
         if (info == null) return false;
         double d = Math.hypot(lat - info.lat(), lon - info.lon());
-        return d <= 0.20; // Raio maximo de ~22 km a partir do centro do municipio
+        return d <= 0.30; // Raio de até ~33 km a partir do centro do município (abrange todo o perímetro municipal)
     }
 
     public static CidadeInfo identificarCidade(double lat, double lon, String cidadeInformada) {

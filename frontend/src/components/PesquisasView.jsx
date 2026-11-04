@@ -91,11 +91,11 @@ export const PesquisasView = () => {
   const handleRealizarBusca = async () => {
     setSegundosDecorridos(0);
     setBuscandoOverpass(true);
-    toast.info('Busca completa da região iniciada. Estimativa de tempo: de 1 a 3 minutos.', 10000);
+    toast.info('Busca iniciada. Estimativa de tempo: de 1 a 3 minutos.', 10000);
 
     try {
       await api.pesquisas.prospectarRegiao();
-      toast.success('Busca completa concluída com sucesso!');
+      toast.success('Busca concluída com sucesso!');
       await carregarPesquisas();
     } catch (err) {
       toast.error(err.message || 'Erro ao realizar busca');
@@ -323,6 +323,12 @@ export const PesquisasView = () => {
     if (filtroEmail === 'sem' && temEmail) return false;
 
     return true;
+  }).sort((a, b) => {
+    const aIsPb = (a.cidade || a.regiao || '').toLowerCase().includes('porto barreiro');
+    const bIsPb = (b.cidade || b.regiao || '').toLowerCase().includes('porto barreiro');
+    if (aIsPb && !bIsPb) return 1;
+    if (!aIsPb && bIsPb) return -1;
+    return 0;
   });
 
   return (
@@ -366,23 +372,23 @@ export const PesquisasView = () => {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-vertex-dark dark:text-vertex-dark-text">
-                  Buscando todas as empresas na região (Busca Total)...
+                  Buscando novos estabelecimentos na região...
                 </h3>
                 <p className="text-xs text-vertex-muted dark:text-vertex-dark-muted mt-0.5 leading-relaxed">
-                  Estimativa de tempo: <strong>1 a 3 minutos</strong>. Varrendo em profundidade estabelecimentos comerciais em Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras.
+                  Consultando dados geográficos e cadastrais em 6 cidades (Laranjeiras do Sul, Rio Bonito do Iguaçu, Porto Barreiro, Virmond, Cantagalo e Nova Laranjeiras).
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-vertex-orange self-end sm:self-center shrink-0 bg-vertex-orange/10 dark:bg-vertex-orange/20 px-2.5 py-1 rounded">
               <Clock className="w-3.5 h-3.5" />
-              <span>Tempo decorrido: {segundosDecorridos}s (1 a 3 min)</span>
+              <span>Tempo de busca: {segundosDecorridos}s</span>
             </div>
           </div>
 
-          <div className="w-full bg-vertex-orange/20 dark:bg-vertex-orange/20 h-2 rounded-full overflow-hidden mt-3.5">
+          <div className="w-full bg-vertex-orange/20 dark:bg-vertex-orange/20 h-1.5 rounded-full overflow-hidden mt-3.5">
             <div 
               className="bg-vertex-orange h-full rounded-full transition-all duration-1000 ease-out"
-              style={{ width: `${Math.min(95, Math.max(5, (segundosDecorridos / 180) * 100))}%` }}
+              style={{ width: `${Math.min(95, Math.max(5, (segundosDecorridos / 120) * 100))}%` }}
             />
           </div>
         </div>
@@ -673,6 +679,13 @@ export const PesquisasView = () => {
                           const enderecoLimpo = p.endereco ? p.endereco.replace(/\s*\([^)]*\)/g, '').trim() : '';
                           const temEnderecoValido = enderecoLimpo.length > 0 && enderecoLimpo.toLowerCase() !== 'centro';
 
+                          let mapsUrl = null;
+                          if (temCoords) {
+                            mapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
+                          } else if (temEnderecoValido) {
+                            mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.consulta, enderecoLimpo, p.cidade, p.estado].filter(Boolean).join(' '))}`;
+                          }
+
                           return (
                             <div className="max-w-[200px] xl:max-w-xs space-y-0.5">
                               {temEnderecoValido ? (
@@ -692,9 +705,9 @@ export const PesquisasView = () => {
                                   <span>Ponto GPS Confirmado</span>
                                 </div>
                               ) : (
-                                <div className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40" title="Não possui localização confirmada no mapa">
-                                  <MapPinOff className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                                  <span>Sem local exato</span>
+                                <div className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40" title="Este estabelecimento não possui logradouro/número nem coordenadas exatas nos registros">
+                                  <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                  <span>Endereço não informado</span>
                                 </div>
                               )}
 
@@ -702,37 +715,23 @@ export const PesquisasView = () => {
                                 {[p.cidade, p.estado].filter(Boolean).join(' - ') || 'Paraná'}
                               </span>
 
-                              {temCoords ? (
+                              {mapsUrl ? (
                                 <a
-                                  href={`https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`}
+                                  href={mapsUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  title={`Ver ponto confirmado no Google Maps (${Number(p.latitude).toFixed(4)}, ${Number(p.longitude).toFixed(4)})`}
-                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:underline cursor-pointer pt-0.5"
+                                  title={temCoords ? `Ver ponto GPS no Google Maps (${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)})` : 'Ver endereço no Google Maps'}
+                                  className="inline-flex items-center gap-1 text-[10px] font-medium text-vertex-orange hover:text-vertex-orange-hover hover:underline cursor-pointer pt-0.5"
                                 >
                                   <MapPin className="w-2.5 h-2.5 shrink-0" />
-                                  <span>Ver no Maps (Local Exato)</span>
+                                  <span>{temCoords ? 'Ver no Maps (Ponto Exato)' : 'Ver no Maps'}</span>
                                   <ArrowUpRight className="w-2.5 h-2.5" />
                                 </a>
                               ) : (
-                                <div className="flex items-center gap-1.5 pt-0.5">
-                                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium" title="Não possui ponto exato confirmado no mapa da cidade">
-                                    <MapPinOff className="w-2.5 h-2.5 text-amber-500 shrink-0" />
-                                    <span>Sem local exato</span>
-                                  </span>
-                                  {temEnderecoValido && (
-                                    <a
-                                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([enderecoLimpo, p.cidade, p.estado].filter(Boolean).join(' '))}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      title="Ver apenas a rua/logradouro no Google Maps"
-                                      className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-vertex-orange hover:underline cursor-pointer"
-                                    >
-                                      <span>(Ver rua)</span>
-                                      <ArrowUpRight className="w-2 h-2" />
-                                    </a>
-                                  )}
-                                </div>
+                                <span className="inline-flex items-center gap-1 text-[10px] text-vertex-muted dark:text-vertex-dark-muted pt-0.5" title="Localização no mapa não disponível sem endereço ou coordenadas">
+                                  <MapPinOff className="w-2.5 h-2.5 text-slate-400" />
+                                  <span>Sem mapa exato</span>
+                                </span>
                               )}
                             </div>
                           );

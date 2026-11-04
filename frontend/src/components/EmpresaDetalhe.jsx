@@ -5,8 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { 
   X, 
   Building2, 
-  MapPin,
-  MapPinOff, 
+  MapPin, 
   Phone, 
   Mail, 
   Globe, 
@@ -386,62 +385,55 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
             if (temCoordenadas) {
               mapsUrl = `https://www.google.com/maps/search/?api=1&query=${empresa.latitude},${empresa.longitude}`;
             } else if (temEnderecoValido) {
-              mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([enderecoLimpo, empresa.cidade, empresa.estado].filter(Boolean).join(' '))}`;
+              mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([empresa.nome, enderecoLimpo, empresa.cidade, empresa.estado].filter(Boolean).join(' '))}`;
+            } else {
+              mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([empresa.nome, empresa.cidade, empresa.estado].filter(Boolean).join(' '))}`;
             }
 
             return (
               <div className="bg-white dark:bg-vertex-dark-surface border border-vertex-border dark:border-vertex-dark-border rounded-xl p-5 shadow-subtle space-y-3.5 transition-colors">
                 <div className="flex items-center justify-between border-b border-vertex-border/70 dark:border-vertex-dark-border pb-2.5">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-vertex-orange" />
+                    <MapPin className="w-4 h-4 text-red-500" />
                     <h3 className="text-xs font-bold text-vertex-dark dark:text-vertex-dark-text uppercase tracking-wider">
                       Área & Localização
                     </h3>
                   </div>
 
                   {/* Botão Ver no Google Maps */}
-                  {temCoordenadas ? (
-                    <a
-                      href={mapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/40 transition-colors"
-                      title="Ver ponto exato confirmado no Google Maps"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Ver no Google Maps (Local Exato)</span>
-                      <ArrowUpRight className="w-3 h-3" />
-                    </a>
-                  ) : temEnderecoValido ? (
-                    <a
-                      href={mapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-vertex-dark-card dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text transition-colors"
-                      title="Ver rua no Google Maps"
-                    >
-                      <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Ver rua no Google Maps</span>
-                      <ArrowUpRight className="w-3 h-3" />
-                    </a>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 rounded border border-amber-200 dark:border-amber-800/40">
-                      <MapPinOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                      <span>Sem local exato</span>
-                    </span>
-                  )}
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-colors ${
+                      temCoordenadas
+                        ? 'bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800/40'
+                        : temEnderecoValido
+                        ? 'bg-slate-100 hover:bg-slate-200 dark:bg-vertex-dark-card dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text'
+                        : 'bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800/40'
+                    }`}
+                    title={
+                      temCoordenadas
+                        ? 'Ver ponto GPS exato no Google Maps'
+                        : temEnderecoValido
+                        ? 'Ver endereço no Google Maps'
+                        : 'Aviso: Localização exata não disponível. A busca abrirá o município de referência.'
+                    }
+                  >
+                    <MapPin className={`w-3.5 h-3.5 ${temCoordenadas ? 'text-blue-600 dark:text-blue-400' : temEnderecoValido ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'}`} />
+                    <span>{temCoordenadas ? 'Ver no Google Maps (GPS Exato)' : temEnderecoValido ? 'Ver no Google Maps' : 'Ver no Maps (Aproximado)'}</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                  </a>
                 </div>
 
-                {/* Aviso visual prévio quando não há ponto exato no mapa */}
-                {!temCoordenadas && (
+                {/* Aviso visual prévio ANTES do usuário clicar no mapinha */}
+                {!temEnderecoValido && !temCoordenadas && (
                   <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/40 text-xs text-amber-900 dark:text-amber-300">
-                    <MapPinOff className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-semibold block">Sem local exato no mapa</span>
+                      <span className="font-semibold block">Atenção: Endereço exato não cadastrado</span>
                       <p className="text-[11px] text-amber-700 dark:text-amber-400/90 mt-0.5 leading-relaxed">
-                        {temEnderecoValido
-                          ? `Este estabelecimento possui endereço cadastral (${enderecoLimpo}), mas ainda não possui ponto GPS/POI exato confirmado no mapa de ${empresa.cidade || 'referência'}.`
-                          : `Este estabelecimento não possui logradouro/número nem coordenadas confirmadas no mapa de ${empresa.cidade || 'referência'}.`}
+                        Este estabelecimento não possui rua/número detalhado nem coordenadas GPS nas bases oficiais. A localização no mapa será estimada com base no município de <strong>{empresa.cidade || 'referência'}</strong>.
                       </p>
                     </div>
                   </div>

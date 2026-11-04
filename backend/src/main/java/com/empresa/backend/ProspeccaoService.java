@@ -20,11 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,12 +37,11 @@ public class ProspeccaoService {
     private String tavilyApiKey = "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";
 
     private static final String[] OVERPASS_SERVERS = {
-            "https://overpass-api.de/api/interpreter",
+            "https://overpass.openstreetmap.fr/api/interpreter",
+            "https://z.overpass-api.de/api/interpreter",
             "https://lz4.overpass-api.de/api/interpreter",
-            "https://overpass.kumi.systems/api/interpreter"
+            "https://overpass-api.de/api/interpreter"
     };
-
-    private static final ConcurrentHashMap<String, Map<String, String>> CNPJ_CACHE = new ConcurrentHashMap<>();
 
     private static final String TAVILY_API_URL = "https://api.tavily.com/search";
     private static final String CNPJA_OPEN_API = "https://open.cnpja.com/office/";
@@ -73,7 +68,8 @@ public class ProspeccaoService {
 
     private static final ConcurrentHashMap<String, Boolean> PROSPECCOES_ATIVAS = new ConcurrentHashMap<>();
 
-    // Prospecção via Overpass (OpenStreetMap) e Tavily regional
+    // Prospecção via Overpass (OpenStreetMap)
+    @Transactional
     public List<PesquisaResponse> prospectarEmpresasSemSite(String idUsuario) {
         if (idUsuario != null && PROSPECCOES_ATIVAS.putIfAbsent(idUsuario, Boolean.TRUE) != null) {
             throw new BusinessException("Ja existe uma prospeccao em andamento para a sua conta. Aguarde alguns instantes antes de iniciar outra.");
@@ -85,23 +81,18 @@ public class ProspeccaoService {
             String bbox = "-25.68,-52.60,-25.25,-51.95";
 
             String query = """
-                    [out:json][timeout:25];
+                    [out:json][timeout:20];
                     (
                       node["shop"]["name"](%s);
                       node["amenity"]["name"](%s);
                       node["craft"]["name"](%s);
                       node["office"]["name"](%s);
                       node["healthcare"]["name"](%s);
-                      node["tourism"]["name"](%s);
                       way["shop"]["name"](%s);
                       way["amenity"]["name"](%s);
-                      way["craft"]["name"](%s);
-                      way["office"]["name"](%s);
-                      way["healthcare"]["name"](%s);
-                      way["tourism"]["name"](%s);
                     );
-                    out body center 300;
-                    """.formatted(bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox);
+                    out body 60;
+                    """.formatted(bbox, bbox, bbox, bbox, bbox, bbox, bbox);
 
             boolean obteveDados = false;
 
@@ -110,7 +101,7 @@ public class ProspeccaoService {
                     log.info("Consultando Overpass API em: {}", server);
                     HttpRequest request = HttpRequest.newBuilder()
                             .uri(URI.create(server))
-                            .timeout(Duration.ofSeconds(12))
+                            .timeout(Duration.ofSeconds(20))
                             .header("Content-Type", "application/x-www-form-urlencoded")
                             .header("User-Agent", "VertexProspectorApp/1.0 (contact: admin@vertex.com)")
                             .header("Accept", "application/json")
@@ -143,16 +134,16 @@ public class ProspeccaoService {
                 log.warn("Nenhum servidor Overpass respondeu ou a busca não retornou novos dados.");
             }
 
-            // Prospecção regional assíncrona para todas as 6 cidades citadas
             try {
-                prospectarTodasCidadesRegiao(idUsuario);
+                int puxadasPortoBarreiro = prospectarCidadeEspecificaTavily(idUsuario, "Porto Barreiro", "PR");
+                log.info("Prospecção direcionada de Porto Barreiro concluída: {} novos estabelecimentos incorporados.", puxadasPortoBarreiro);
             } catch (Exception e) {
-                log.warn("Falha na prospecção complementar regional: {}", e.getMessage());
+                log.warn("Falha na prospecção complementar de Porto Barreiro: {}", e.getMessage());
             }
 
             limparPesquisasInvalidas(idUsuario);
 
-            return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 500))
+            return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 100))
                     .getContent()
                     .stream()
                     .map(PesquisaResponse::from)
@@ -165,77 +156,19 @@ public class ProspeccaoService {
         }
     }
 
-    public void prospectarTodasCidadesRegiao(String idUsuario) {
-        log.info("Iniciando prospecção regional paralela para todas as 6 cidades citadas (usuário: {})", idUsuario);
-        ExecutorService executor = Executors.newFixedThreadPool(4);
-        try {
-            List<CompletableFuture<Integer>> futures = CidadeHelper.CIDADES_CITADAS.stream()
-                    .map(info -> CompletableFuture.supplyAsync(() -> {
-                        try {
-                            int novos = prospectarCidadeEspecificaTavily(idUsuario, info.nome(), "PR");
-                            log.info("Prospecção regional para {}: {} novos estabelecimentos incorporados.", info.nome(), novos);
-                            return novos;
-                        } catch (Exception ex) {
-                            log.warn("Falha na prospecção complementar de {}: {}", info.nome(), ex.getMessage());
-                            return 0;
-                        }
-                    }, executor))
-                    .toList();
-
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .get(90, TimeUnit.SECONDS);
-
-            int total = futures.stream().mapToInt(f -> {
-                try { return f.getNow(0); } catch (Exception e) { return 0; }
-            }).sum();
-            log.info("Prospecção complementar regional concluída: {} novos estabelecimentos incorporados no total.", total);
-        } catch (Exception e) {
-            log.warn("Aviso ou limite de tempo na prospecção regional: {}", e.getMessage());
-        } finally {
-            executor.shutdown();
-        }
-    }
-
     public void limparPesquisasInvalidas(String idUsuario) {
         if (idUsuario == null) return;
         try {
             List<Pesquisa> pesquisas = pesquisaRepository.findByIdUsuario(idUsuario, PageRequest.of(0, 500)).getContent();
             for (Pesquisa p : pesquisas) {
                 PesquisaResponse resp = PesquisaResponse.from(p);
-                String consLow = (p.getConsulta() != null ? p.getConsulta() : "").toLowerCase();
-                boolean entidadeFantasma = consLow.contains("usina solar") || consLow.contains("locacao de usina") ||
-                        consLow.contains("holding") || consLow.contains("administracao de bens") ||
-                        consLow.contains("participacoes ltda");
-
-                if (!CidadeHelper.isCidadeCitada(resp.cidade()) || entidadeFantasma) {
+                if (!CidadeHelper.isCidadeCitada(resp.cidade())) {
                     pesquisaRepository.delete(p);
-                    log.info("Pesquisa higienizada (cidade ou entidade inválida '{}'): {}", resp.cidade(), p.getConsulta());
-                    continue;
-                }
-
-                // Enriquecimento de precisão: atualiza coordenadas de pesquisas existentes caso ainda não possuam
-                if (resp.latitude() == null || resp.longitude() == null) {
-                    double[] coords = buscarCoordenadasExatas(p.getConsulta(), resp.endereco(), resp.cidade());
-                    if (coords != null) {
-                        try {
-                            Map<String, String> meta = new LinkedHashMap<>();
-                            if (p.getRegiao() != null && p.getRegiao().trim().startsWith("{")) {
-                                JsonNode node = objectMapper.readTree(p.getRegiao());
-                                node.fields().forEachRemaining(f -> meta.put(f.getKey(), f.getValue().asText()));
-                            }
-                            meta.put("latitude", String.valueOf(coords[0]));
-                            meta.put("longitude", String.valueOf(coords[1]));
-                            meta.put("localizacaoConfirmada", "true");
-                            meta.put("tipoLocalizacao", "EXATA");
-                            p.setRegiao(objectMapper.writeValueAsString(meta));
-                            pesquisaRepository.save(p);
-                            log.info("Localização exata confirmada e enriquecida no banco para '{}' em {}: {}, {}", p.getConsulta(), resp.cidade(), coords[0], coords[1]);
-                        } catch (Exception ignored) {}
-                    }
+                    log.info("Pesquisa higienizada (cidade não citada '{}'): {}", resp.cidade(), p.getConsulta());
                 }
             }
         } catch (Exception e) {
-            log.warn("Aviso ao higienizar pesquisas: {}", e.getMessage());
+            log.warn("Aviso ao higienizar pesquisas com cidades não citadas: {}", e.getMessage());
         }
     }
 
@@ -380,25 +313,14 @@ public class ProspeccaoService {
                 if (razaoSocialOficial != null && !razaoSocialOficial.isBlank()) {
                     meta.put("razaoSocial", razaoSocialOficial);
                 }
-                boolean temCoords = (!Double.isNaN(lat) && !Double.isNaN(lon) && (lat != 0.0 || lon != 0.0) && CidadeHelper.isCoordenadaValidaParaCidade(lat, lon, cidade));
-                if (!temCoords) {
-                    double[] coordsExatas = buscarCoordenadasExatas(nome, enderecoLimpo, cidade);
-                    if (coordsExatas != null) {
-                        lat = coordsExatas[0];
-                        lon = coordsExatas[1];
-                        temCoords = true;
-                    }
-                }
-
+                boolean temCoords = (!Double.isNaN(lat) && !Double.isNaN(lon) && (lat != 0.0 || lon != 0.0));
                 if (temCoords) {
                     meta.put("latitude", String.valueOf(lat));
                     meta.put("longitude", String.valueOf(lon));
-                    meta.put("localizacaoConfirmada", "true");
-                    meta.put("tipoLocalizacao", "EXATA");
-                } else {
-                    meta.put("localizacaoConfirmada", "false");
-                    meta.put("tipoLocalizacao", "APROXIMADA");
                 }
+                boolean temEndereco = (enderecoLimpo != null && !enderecoLimpo.isBlank() && !enderecoLimpo.equalsIgnoreCase("Centro"));
+                meta.put("localizacaoConfirmada", String.valueOf(temCoords || temEndereco));
+                meta.put("tipoLocalizacao", (temCoords && temEndereco) ? "EXATA" : (temCoords ? "GPS" : (temEndereco ? "ENDERECO" : "APROXIMADA")));
 
                 String regiaoJson = objectMapper.writeValueAsString(meta);
 
@@ -420,90 +342,103 @@ public class ProspeccaoService {
         log.info("Prospecção dinâmica concluída: {} estabelecimentos coletados e enriquecidos via APIs web.", processados);
     }
 
-    // Consultas cadastrais de CNPJ otimizadas (BrasilAPI, CNPJá, Minha Receita com cache)
+    // Consultas cadastrais de CNPJ (CNPJá, OpenCNPJ, BrasilAPI, Minha Receita)
     public Map<String, String> consultarDadosCadastraisCompletos(String cnpj) {
-        if (cnpj == null) return null;
         String cnpjLimpo = cnpj.replaceAll("\\D", "");
         if (cnpjLimpo.length() != 14) return null;
 
-        Map<String, String> emCache = CNPJ_CACHE.get(cnpjLimpo);
-        if (emCache != null) {
-            return emCache;
-        }
-
         Map<String, String> dadosConsolidados = new LinkedHashMap<>();
 
-        // 1. Tentar BrasilAPI primeiro (resposta rápida e completa)
         try {
-            HttpRequest reqBrasilApi = HttpRequest.newBuilder()
-                    .uri(URI.create(BRASIL_API_CNPJ + cnpjLimpo))
-                    .timeout(Duration.ofMillis(2000))
+            HttpRequest reqCnpja = HttpRequest.newBuilder()
+                    .uri(URI.create(CNPJA_OPEN_API + cnpjLimpo))
+                    .timeout(Duration.ofMillis(3500))
                     .header("User-Agent", BROWSER_USER_AGENT)
                     .header("Accept", "application/json")
                     .GET()
                     .build();
 
-            HttpResponse<String> respBrasilApi = httpClient.send(reqBrasilApi, HttpResponse.BodyHandlers.ofString());
-            if (respBrasilApi.statusCode() == 200 && respBrasilApi.body() != null && respBrasilApi.body().trim().startsWith("{")) {
-                JsonNode root = objectMapper.readTree(respBrasilApi.body());
-                Map<String, String> dados = extrairDadosBrasilApiJson(root);
-                if (dados != null && !dados.isEmpty()) {
-                    dadosConsolidados.putAll(dados);
+            HttpResponse<String> respCnpja = httpClient.send(reqCnpja, HttpResponse.BodyHandlers.ofString());
+            if (respCnpja.statusCode() == 200) {
+                JsonNode root = objectMapper.readTree(respCnpja.body());
+                Map<String, String> dadosCnpja = extrairDadosCnpjaJson(root);
+                if (dadosCnpja != null && !dadosCnpja.isEmpty()) {
+                    dadosConsolidados.putAll(dadosCnpja);
+                    log.info("CNPJá: dados cadastrais extraídos com sucesso para CNPJ {}", cnpjLimpo);
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.debug("CNPJá open API falhou para {}: {}", cnpjLimpo, e.getMessage());
+        }
 
-        // 2. Se BrasilAPI não retornou razaoSocial, tentar CNPJá como fallback rápido
-        if (!dadosConsolidados.containsKey("razaoSocial")) {
+        if (!dadosConsolidados.containsKey("telefone") || !dadosConsolidados.containsKey("email") || !dadosConsolidados.containsKey("razaoSocial")) {
             try {
-                HttpRequest reqCnpja = HttpRequest.newBuilder()
-                        .uri(URI.create(CNPJA_OPEN_API + cnpjLimpo))
-                        .timeout(Duration.ofMillis(2000))
+                HttpRequest reqOpenCnpj = HttpRequest.newBuilder()
+                        .uri(URI.create(OPEN_CNPJ_API + cnpjLimpo))
+                        .timeout(Duration.ofMillis(3000))
                         .header("User-Agent", BROWSER_USER_AGENT)
                         .header("Accept", "application/json")
                         .GET()
                         .build();
 
-                HttpResponse<String> respCnpja = httpClient.send(reqCnpja, HttpResponse.BodyHandlers.ofString());
-                if (respCnpja.statusCode() == 200 && respCnpja.body() != null && respCnpja.body().trim().startsWith("{")) {
-                    JsonNode root = objectMapper.readTree(respCnpja.body());
-                    Map<String, String> dadosCnpja = extrairDadosCnpjaJson(root);
-                    if (dadosCnpja != null && !dadosCnpja.isEmpty()) {
-                        dadosConsolidados.putAll(dadosCnpja);
+                HttpResponse<String> respOpenCnpj = httpClient.send(reqOpenCnpj, HttpResponse.BodyHandlers.ofString());
+                if (respOpenCnpj.statusCode() == 200) {
+                    JsonNode root = objectMapper.readTree(respOpenCnpj.body());
+                    Map<String, String> dadosOpenCnpj = extrairDadosOpenCnpjJson(root);
+                    if (dadosOpenCnpj != null && !dadosOpenCnpj.isEmpty()) {
+                        dadosOpenCnpj.forEach(dadosConsolidados::putIfAbsent);
+                        log.info("OpenCNPJ (BigQuery Público): dados cadastrais obtidos para CNPJ {}", cnpjLimpo);
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("OpenCNPJ API falhou para {}: {}", cnpjLimpo, e.getMessage());
+            }
+        }
+
+        if (!dadosConsolidados.containsKey("telefone") || !dadosConsolidados.containsKey("email")) {
+            try {
+                HttpRequest reqBrasilApi = HttpRequest.newBuilder()
+                        .uri(URI.create(BRASIL_API_CNPJ + cnpjLimpo))
+                        .timeout(Duration.ofMillis(3000))
+                        .header("User-Agent", BROWSER_USER_AGENT)
+                        .header("Accept", "application/json")
+                        .GET()
+                        .build();
+
+                HttpResponse<String> respBrasilApi = httpClient.send(reqBrasilApi, HttpResponse.BodyHandlers.ofString());
+                if (respBrasilApi.statusCode() == 200) {
+                    JsonNode root = objectMapper.readTree(respBrasilApi.body());
+                    Map<String, String> dadosBrasilApi = extrairDadosBrasilApiJson(root);
+                    if (dadosBrasilApi != null && !dadosBrasilApi.isEmpty()) {
+                        dadosBrasilApi.forEach(dadosConsolidados::putIfAbsent);
+                        log.info("BrasilAPI: dados cadastrais obtidos para CNPJ {}", cnpjLimpo);
                     }
                 }
             } catch (Exception ignored) {}
         }
 
-        // 3. Se ainda faltar razaoSocial, tentar Minha Receita como último fallback
-        if (!dadosConsolidados.containsKey("razaoSocial")) {
+        if (!dadosConsolidados.containsKey("telefone") || !dadosConsolidados.containsKey("email")) {
             try {
                 HttpRequest reqMinhaReceita = HttpRequest.newBuilder()
                         .uri(URI.create(MINHA_RECEITA_API + cnpjLimpo))
-                        .timeout(Duration.ofMillis(2000))
+                        .timeout(Duration.ofMillis(3000))
                         .header("User-Agent", BROWSER_USER_AGENT)
                         .header("Accept", "application/json")
                         .GET()
                         .build();
 
                 HttpResponse<String> respMinhaReceita = httpClient.send(reqMinhaReceita, HttpResponse.BodyHandlers.ofString());
-                if (respMinhaReceita.statusCode() == 200 && respMinhaReceita.body() != null && respMinhaReceita.body().trim().startsWith("{")) {
+                if (respMinhaReceita.statusCode() == 200) {
                     JsonNode root = objectMapper.readTree(respMinhaReceita.body());
                     Map<String, String> dadosMinhaReceita = extrairDadosBrasilApiJson(root);
                     if (dadosMinhaReceita != null && !dadosMinhaReceita.isEmpty()) {
-                        dadosConsolidados.putAll(dadosMinhaReceita);
+                        dadosMinhaReceita.forEach(dadosConsolidados::putIfAbsent);
                     }
                 }
             } catch (Exception ignored) {}
         }
 
-        if (!dadosConsolidados.isEmpty()) {
-            if (CNPJ_CACHE.size() > 1000) CNPJ_CACHE.clear();
-            CNPJ_CACHE.put(cnpjLimpo, dadosConsolidados);
-            return dadosConsolidados;
-        }
-
-        return null;
+        return dadosConsolidados.isEmpty() ? null : dadosConsolidados;
     }
 
     private Map<String, String> extrairDadosCnpjaJson(JsonNode root) {
@@ -1066,7 +1001,7 @@ public class ProspeccaoService {
                 .replace("24/7", "Aberto 24 horas");
     }
 
-    // Prospecção direcionada via Tavily para cidades específicas
+    // Prospecção direcionada via Tavily
     public int prospectarCidadeEspecificaTavily(String idUsuario, String cidade, String estado) {
         String cidadeCanonica = CidadeHelper.normalizarCidade(cidade);
         if (cidadeCanonica == null) {
@@ -1081,87 +1016,75 @@ public class ProspeccaoService {
 
         int novasEmpresas = 0;
         try {
-            String q = String.format("site:cnpj.biz OR site:casadosdados.com.br \"%s\" PR (comercio OR loja OR mercado OR restaurante OR farmacia OR oficina OR posto OR servicos OR padaria OR auto OR clinica OR distribuidora OR lanchonete OR hotel)", cidadeCanonica);
+            List<String> queries = List.of(
+                    String.format("site:cnpj.biz OR site:casadosdados.com.br \"%s\" %s comercio", cidadeCanonica, estado != null ? estado : "PR"),
+                    String.format("\"%s\" %s empresas CNPJ", cidadeCanonica, estado != null ? estado : "PR")
+            );
 
             Set<String> cnpjsEncontrados = new java.util.LinkedHashSet<>();
             Map<String, String> nomesPorCnpj = new LinkedHashMap<>();
 
-            try {
-                Map<String, Object> payload = new LinkedHashMap<>();
-                payload.put("api_key", tavilyApiKey);
-                payload.put("query", q);
-                payload.put("search_depth", "basic");
-                payload.put("max_results", 20);
-                payload.put("include_domains", List.of(
-                        "casadosdados.com.br",
-                        "cnpj.biz",
-                        "econodata.com.br",
-                        "consultas.plus",
-                        "infocnpj.com.br",
-                        "situacaocadastral.info"
-                ));
+            for (String q : queries) {
+                try {
+                    Map<String, Object> payload = new LinkedHashMap<>();
+                    payload.put("api_key", tavilyApiKey);
+                    payload.put("query", q);
+                    payload.put("search_depth", "basic");
+                    payload.put("max_results", 10);
+                    payload.put("include_domains", List.of(
+                            "casadosdados.com.br",
+                            "cnpj.biz",
+                            "econodata.com.br",
+                            "consultas.plus",
+                            "infocnpj.com.br",
+                            "situacaocadastral.info"
+                    ));
 
-                String jsonPayload = objectMapper.writeValueAsString(payload);
-                HttpRequest req = HttpRequest.newBuilder()
-                        .uri(URI.create(TAVILY_API_URL))
-                        .timeout(Duration.ofSeconds(5))
-                        .header("Content-Type", "application/json")
-                        .header("Accept", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                        .build();
+                    String jsonPayload = objectMapper.writeValueAsString(payload);
+                    HttpRequest req = HttpRequest.newBuilder()
+                            .uri(URI.create(TAVILY_API_URL))
+                            .timeout(Duration.ofSeconds(6))
+                            .header("Content-Type", "application/json")
+                            .header("Accept", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                            .build();
 
-                HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-                if (resp.statusCode() == 200 && resp.body() != null && resp.body().trim().startsWith("{")) {
-                    JsonNode root = objectMapper.readTree(resp.body());
-                    JsonNode results = root.path("results");
-                    if (results.isArray()) {
-                        for (JsonNode res : results) {
-                            String title = res.path("title").asText("");
-                            String content = res.path("content").asText("");
-                            String url = res.path("url").asText("");
-                            String textoCompleto = title + " " + content + " " + url;
+                    HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                    if (resp.statusCode() == 200 && resp.body() != null) {
+                        JsonNode root = objectMapper.readTree(resp.body());
+                        JsonNode results = root.path("results");
+                        if (results.isArray()) {
+                            for (JsonNode res : results) {
+                                String title = res.path("title").asText("");
+                                String content = res.path("content").asText("");
+                                String url = res.path("url").asText("");
+                                String textoCompleto = title + " " + content + " " + url;
 
-                            Matcher matcher = CNPJ_PATTERN.matcher(textoCompleto);
-                            while (matcher.find()) {
-                                String cand = matcher.group().replaceAll("\\D", "");
-                                if (cand.length() == 14 && validarCnpj(cand)) {
-                                    cnpjsEncontrados.add(cand);
-                                    if (!nomesPorCnpj.containsKey(cand) && !title.isBlank()) {
-                                        String nomeLimpo = limparNomePreliminar(title, cand);
-                                        if (!nomeLimpo.isBlank()) {
-                                            nomesPorCnpj.put(cand, nomeLimpo);
+                                Matcher matcher = CNPJ_PATTERN.matcher(textoCompleto);
+                                while (matcher.find()) {
+                                    String cand = matcher.group().replaceAll("\\D", "");
+                                    if (cand.length() == 14 && validarCnpj(cand)) {
+                                        cnpjsEncontrados.add(cand);
+                                        if (!nomesPorCnpj.containsKey(cand) && !title.isBlank()) {
+                                            String nomeLimpo = limparNomePreliminar(title, cand);
+                                            if (!nomeLimpo.isBlank()) {
+                                                nomesPorCnpj.put(cand, nomeLimpo);
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                } catch (Exception e) {
+                    log.warn("Erro ao executar busca Tavily para '{}' (query: {}): {}", cidadeCanonica, q, e.getMessage());
                 }
-            } catch (Exception e) {
-                log.warn("Erro ao executar busca Tavily para '{}': {}", cidadeCanonica, e.getMessage());
             }
 
             log.info("Tavily localizou {} CNPJs únicos para {}", cnpjsEncontrados.size(), cidadeCanonica);
 
-            int limite = 20;
-            int processados = 0;
-
             for (String cnpj : cnpjsEncontrados) {
-                if (processados >= limite) break;
-
                 try {
-                    String nomePreliminar = nomesPorCnpj.get(cnpj);
-                    if (nomePreliminar != null) {
-                        String nl = nomePreliminar.toLowerCase();
-                        if (nl.contains("podemos") || nl.contains("partido") || nl.contains("diretorio") ||
-                            nl.contains("municipio de") || nl.contains("prefeitura") || nl.contains("camara municipal") ||
-                            nl.contains("lista de empresas") || nl.contains("maiores empresas") ||
-                            nl.contains("usina solar") || nl.contains("locacao de usina") || nl.contains("holding") ||
-                            nl.contains("administracao de bens") || nl.contains("participacoes ltda")) {
-                            continue;
-                        }
-                    }
-
                     Map<String, String> dadosOficiais = null;
                     try {
                         dadosOficiais = consultarDadosCadastraisCompletos(cnpj);
@@ -1182,21 +1105,13 @@ public class ProspeccaoService {
                     String nome = (nomeFantasia != null && !nomeFantasia.isBlank()) ? nomeFantasia : razaoSocial;
 
                     if (nome == null || nome.isBlank()) {
-                        nome = nomePreliminar;
+                        nome = nomesPorCnpj.get(cnpj);
                     }
                     if (nome == null || nome.isBlank()) {
                         continue;
                     }
 
                     nome = limparNomePreliminar(nome, cnpj);
-
-                    String nomeCheck = nome.toLowerCase();
-                    if (nomeCheck.contains("podemos") || nomeCheck.contains("partido") || nomeCheck.contains("diretorio") ||
-                        nomeCheck.contains("municipio de") || nomeCheck.contains("prefeitura") || nomeCheck.contains("camara municipal") ||
-                        nomeCheck.contains("usina solar") || nomeCheck.contains("locacao de usina") || nomeCheck.contains("holding") ||
-                        nomeCheck.contains("administracao de bens") || nomeCheck.contains("participacoes ltda")) {
-                        continue;
-                    }
 
                     if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nome) ||
                         pesquisaRepository.existsByIdUsuarioAndConsultaIgnoreCase(idUsuario, nome)) {
@@ -1237,17 +1152,9 @@ public class ProspeccaoService {
                     if (razaoSocial != null && !razaoSocial.isBlank()) {
                         meta.put("razaoSocial", razaoSocial);
                     }
-                    double[] coordsTavily = buscarCoordenadasExatas(nome, endereco, cidadeFinal);
-                    boolean temCoords = (coordsTavily != null);
-                    if (temCoords) {
-                        meta.put("latitude", String.valueOf(coordsTavily[0]));
-                        meta.put("longitude", String.valueOf(coordsTavily[1]));
-                        meta.put("localizacaoConfirmada", "true");
-                        meta.put("tipoLocalizacao", "EXATA");
-                    } else {
-                        meta.put("localizacaoConfirmada", "false");
-                        meta.put("tipoLocalizacao", "APROXIMADA");
-                    }
+                    boolean temEndereco = (endereco != null && !endereco.isBlank());
+                    meta.put("localizacaoConfirmada", String.valueOf(temEndereco));
+                    meta.put("tipoLocalizacao", temEndereco ? "ENDERECO" : "APROXIMADA");
 
                     String regiaoJson = objectMapper.writeValueAsString(meta);
 
@@ -1260,7 +1167,6 @@ public class ProspeccaoService {
 
                     pesquisaRepository.save(p);
                     novasEmpresas++;
-                    processados++;
                     log.info("Empresa de {} salva com sucesso: {} (CNPJ: {})", cidadeFinal, nome, cnpjFormatado);
 
                 } catch (Exception ex) {
@@ -1275,120 +1181,14 @@ public class ProspeccaoService {
         return novasEmpresas;
     }
 
-    public double[] buscarCoordenadasExatas(String nome, String endereco, String cidade) {
-        if (cidade == null || cidade.isBlank()) return null;
-
-        // 1. Tenta geocodificar nome + cidade via Nominatim OpenStreetMap
-        if (nome != null && !nome.isBlank()) {
-            double[] coords = consultarNominatim(nome + ", " + cidade + ", Paraná, Brasil", cidade);
-            if (coords != null) return coords;
-        }
-
-        // 2. Se endereço disponível e não for genérico, tenta geocodificar o logradouro via Nominatim
-        if (endereco != null && !endereco.isBlank() && !endereco.equalsIgnoreCase("Centro")) {
-            String endLimpo = endereco.replaceAll("\\s*\\([^)]*\\)", "").trim();
-            double[] coords = consultarNominatim(endLimpo + ", " + cidade + ", Paraná, Brasil", cidade);
-            if (coords != null) return coords;
-        }
-
-        // 3. Fallback complementar: Tavily Search
-        return buscarCoordenadasViaTavily(nome, endereco, cidade);
-    }
-
-    public double[] consultarNominatim(String query, String cidadeEsperada) {
-        if (query == null || query.isBlank()) return null;
-        try {
-            String url = "https://nominatim.openstreetmap.org/search?q=" +
-                    URLEncoder.encode(query, StandardCharsets.UTF_8) +
-                    "&format=json&limit=1&countrycodes=br";
-
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(3))
-                    .header("User-Agent", "VertexProspectorApp/1.0 (contact: admin@vertex.com)")
-                    .header("Accept", "application/json")
-                    .GET()
-                    .build();
-
-            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() == 200 && resp.body() != null && resp.body().trim().startsWith("[")) {
-                JsonNode array = objectMapper.readTree(resp.body());
-                if (array.isArray() && array.size() > 0) {
-                    JsonNode primeiro = array.get(0);
-                    double lat = primeiro.path("lat").asDouble(Double.NaN);
-                    double lon = primeiro.path("lon").asDouble(Double.NaN);
-                    if (CidadeHelper.isCoordenadaValidaParaCidade(lat, lon, cidadeEsperada)) {
-                        log.info("Nominatim localizou coordenadas para '{}' em {}: {}, {}", query, cidadeEsperada, lat, lon);
-                        return new double[]{lat, lon};
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.debug("Nominatim consulta para '{}' em {}: {}", query, cidadeEsperada, e.getMessage());
-        }
-        return null;
-    }
-
-    public double[] buscarCoordenadasViaTavily(String nome, String endereco, String cidade) {
-        if (tavilyApiKey == null || tavilyApiKey.isBlank() || nome == null || cidade == null) {
-            return null;
-        }
-        try {
-            String q = String.format("\"%s\" \"%s\" PR (maps OR coordenadas OR localizacao)", nome, cidade);
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("api_key", tavilyApiKey);
-            payload.put("query", q);
-            payload.put("search_depth", "basic");
-            payload.put("max_results", 3);
-
-            String jsonPayload = objectMapper.writeValueAsString(payload);
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(TAVILY_API_URL))
-                    .timeout(Duration.ofSeconds(3))
-                    .header("Content-Type", "application/json")
-                    .header("Accept", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                    .build();
-
-            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() == 200 && resp.body() != null && resp.body().trim().startsWith("{")) {
-                JsonNode root = objectMapper.readTree(resp.body());
-                JsonNode results = root.path("results");
-                if (results.isArray()) {
-                    Pattern coordPattern = Pattern.compile("(-25\\.\\d{3,})[\\s,/]+(-5[12]\\.\\d{3,})");
-                    for (JsonNode res : results) {
-                        String texto = res.path("url").asText("") + " " + res.path("content").asText("") + " " + res.path("title").asText("");
-                        Matcher m = coordPattern.matcher(texto);
-                        if (m.find()) {
-                            double lat = Double.parseDouble(m.group(1));
-                            double lon = Double.parseDouble(m.group(2));
-                            if (CidadeHelper.isCoordenadaValidaParaCidade(lat, lon, cidade)) {
-                                log.info("Tavily localizou coordenadas confirmadas para '{}' em {}: {}, {}", nome, cidade, lat, lon);
-                                return new double[]{lat, lon};
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.debug("Tavily busca de coordenadas para '{}' em {}: {}", nome, cidade, e.getMessage());
-        }
-        return null;
-    }
-
     private String limparNomePreliminar(String raw, String cnpj) {
         if (raw == null) return "";
         String nome = raw.trim();
-        nome = nome.replaceAll("(?i)\\s*-\\s*\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}.*", "");
         nome = nome.replaceAll("(?i)\\s*-\\s*\\d{14}.*", "");
         nome = nome.replaceAll("(?i)\\s*\\d{14}.*", "");
         nome = nome.replaceAll("(?i)\\s*\\|.*", "");
-        nome = nome.replaceAll("(?i)\\s*-\\s*(Econodata|CNPJ Biz|Casa dos Dados).*", "");
-        nome = nome.replaceAll("(?i)\\s+em\\s+(Laranjeiras do Sul|Rio Bonito do Iguaçu|Porto Barreiro|Virmond|Cantagalo|Nova Laranjeiras).*$", "");
-        nome = nome.replaceAll("(?i)\\s*-\\s*(Laranjeiras do Sul|Rio Bonito do Iguaçu|Porto Barreiro|Virmond|Cantagalo|Nova Laranjeiras).*$", "");
-        nome = nome.replaceAll("(?i)\\s*,\\s*PR.*$", "");
-        nome = nome.replaceAll("(?i)\\s*-\\s*PR.*$", "");
-        nome = nome.replaceAll("(?i)\\s*/\\s*PR.*$", "");
+        nome = nome.replaceAll("(?i)\\s*-\\s*Porto Barreiro.*", "");
+        nome = nome.replaceAll("(?i)\\s*Porto Barreiro.*", "");
         nome = nome.replaceAll("^\\d{2}\\.\\d{3}\\.\\d{3}\\s*", "");
         nome = nome.replaceAll("^\\d{14}\\s*", "");
         return nome.trim();

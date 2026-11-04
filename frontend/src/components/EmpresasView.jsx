@@ -17,7 +17,6 @@ import {
   ArrowUpRight,
   Building2,
   MapPin,
-  MapPinOff,
   Globe2,
   Check,
   RotateCcw,
@@ -606,46 +605,21 @@ export const EmpresasView = () => {
 
                     {/* Cidade e Endereço */}
                     <td className="py-4 px-5 text-vertex-body dark:text-vertex-dark-text">
-                      {(() => {
-                        const temCoords = emp.latitude && emp.longitude && (emp.latitude !== 0 || emp.longitude !== 0);
-                        const enderecoLimpo = emp.endereco && emp.endereco.trim() && emp.endereco.toLowerCase() !== 'centro' ? emp.endereco.trim() : '';
-
-                        return (
-                          <div className="max-w-[200px] space-y-0.5">
-                            {enderecoLimpo ? (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="block text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text truncate">
-                                  {enderecoLimpo}
-                                </span>
-                                {temCoords && (
-                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-200 dark:border-emerald-800/40" title="Localização exata via GPS">
-                                    GPS
-                                  </span>
-                                )}
-                              </div>
-                            ) : temCoords ? (
-                              <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800/40">
-                                <MapPin className="w-2.5 h-2.5" />
-                                <span>Ponto GPS Confirmado</span>
-                              </div>
-                            ) : (
-                              <div className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40">
-                                <MapPinOff className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span>Sem local exato</span>
-                              </div>
-                            )}
-                            <span className="block text-[11px] text-vertex-muted dark:text-vertex-dark-muted truncate">
-                              {[emp.cidade, emp.estado].filter(Boolean).join(' - ') || '-'}
-                            </span>
-                            {!temCoords && (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                                <MapPinOff className="w-2 h-2 text-amber-500" />
-                                <span>Sem local exato</span>
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
+                      <div className="max-w-[200px]">
+                        {emp.endereco && emp.endereco.trim() && emp.endereco.toLowerCase() !== 'centro' ? (
+                          <span className="block text-xs font-semibold text-vertex-dark dark:text-vertex-dark-text truncate">
+                            {emp.endereco}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800/40">
+                            <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span>Sem endereço exato</span>
+                          </span>
+                        )}
+                        <span className="block text-[11px] text-vertex-muted dark:text-vertex-dark-muted truncate mt-0.5">
+                          {[emp.cidade, emp.estado].filter(Boolean).join(' - ') || '-'}
+                        </span>
+                      </div>
                     </td>
 
                     {/* Telefone */}

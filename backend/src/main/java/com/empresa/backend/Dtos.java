@@ -215,12 +215,10 @@ record PesquisaResponse(
                 + (endereco != null ? endereco : "") + " "
                 + (raw != null ? raw : "")).toLowerCase();
 
-        if (cidade == null || cidade.isBlank()) {
-            for (CidadeHelper.CidadeInfo c : CidadeHelper.CIDADES_CITADAS) {
-                if (textoBusca.contains(c.nome().toLowerCase())) {
-                    cidade = c.nome();
-                    break;
-                }
+        for (CidadeHelper.CidadeInfo c : CidadeHelper.CIDADES_CITADAS) {
+            if (textoBusca.contains(c.nome().toLowerCase())) {
+                cidade = c.nome();
+                break;
             }
         }
 
@@ -249,17 +247,23 @@ record PesquisaResponse(
             cidade = "Laranjeiras do Sul";
         }
 
-        boolean temCoordenadas = (latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0) && CidadeHelper.isCoordenadaValidaParaCidade(latitude, longitude, cidade));
-        if (!temCoordenadas) {
-            latitude = null;
-            longitude = null;
+        boolean temCoordenadas = (latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0));
+        boolean temEndereco = (endereco != null && !endereco.isBlank());
+
+        if (localizacaoConfirmada == null) {
+            localizacaoConfirmada = temCoordenadas || temEndereco;
         }
-
-        boolean temEnderecoValido = (endereco != null && !endereco.isBlank() && !endereco.equalsIgnoreCase("Centro"));
-        boolean temEnderecoExato = temEnderecoValido && (endereco.matches(".*\\d+.*") || endereco.toLowerCase().contains("rodovia") || endereco.toLowerCase().contains("km") || endereco.toLowerCase().contains("rua") || endereco.toLowerCase().contains("avenida") || endereco.toLowerCase().contains("av."));
-
-        localizacaoConfirmada = temCoordenadas || temEnderecoExato;
-        tipoLocalizacao = temCoordenadas ? "EXATA" : (temEnderecoExato ? "ENDERECO" : "APROXIMADA");
+        if (tipoLocalizacao == null) {
+            if (temCoordenadas && temEndereco) {
+                tipoLocalizacao = "EXATA";
+            } else if (temCoordenadas) {
+                tipoLocalizacao = "GPS";
+            } else if (temEndereco) {
+                tipoLocalizacao = "ENDERECO";
+            } else {
+                tipoLocalizacao = "APROXIMADA";
+            }
+        }
 
         String regiaoFormatada = cidade + " - " + estado;
         String categoriaRefinada = CategoriaDetector.refinar(categoria, p.getConsulta());
@@ -353,17 +357,12 @@ record EmpresaResponse(
             } catch (Exception ignored) {}
         }
 
-        boolean temCoords = (lat != null && lon != null && (lat != 0.0 || lon != 0.0) && CidadeHelper.isCoordenadaValidaParaCidade(lat, lon, cidade));
-        if (!temCoords) {
-            lat = null;
-            lon = null;
+        boolean temCoords = (lat != null && lon != null && (lat != 0.0 || lon != 0.0));
+        boolean temEndereco = (!endereco.isBlank());
+        if (confirmada == null) confirmada = temCoords || temEndereco;
+        if (tipo == null) {
+            tipo = (temCoords && temEndereco) ? "EXATA" : (temCoords ? "GPS" : (temEndereco ? "ENDERECO" : "APROXIMADA"));
         }
-
-        boolean temEnderecoValido = (!endereco.isBlank() && !endereco.equalsIgnoreCase("Centro"));
-        boolean temEnderecoExato = temEnderecoValido && (endereco.matches(".*\\d+.*") || endereco.toLowerCase().contains("rodovia") || endereco.toLowerCase().contains("km") || endereco.toLowerCase().contains("rua") || endereco.toLowerCase().contains("avenida") || endereco.toLowerCase().contains("av."));
-
-        confirmada = temCoords || temEnderecoExato;
-        tipo = temCoords ? "EXATA" : (temEnderecoExato ? "ENDERECO" : "APROXIMADA");
 
         return new EmpresaResponse(
                 e.getIdEmpresa(), e.getNome(), cat, cidade,

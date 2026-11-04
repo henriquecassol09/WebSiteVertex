@@ -119,7 +119,7 @@ public class Config {
                 "http://websitevertex.duckdns.org*",
                 "https://websitevertex.duckdns.org*"
         ));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin", "X-CSRF-Token", "X-CSRF-Protection"));
         configuration.setExposedHeaders(List.of("Authorization", "X-CSRF-Token"));
         configuration.setAllowCredentials(true);

@@ -117,4 +117,42 @@ class CsrfDefenseTest {
 
         assertEquals(200, response.getStatus());
     }
+    @Test
+    @DisplayName("POST com Origin do DuckDNS (websitevertex.duckdns.org) deve ser permitido")
+    void postComOriginDuckDnsDeveSerPermitido() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/empresas");
+        request.addHeader("Origin", "http://websitevertex.duckdns.org");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain filterChain = new MockFilterChain();
+
+        csrfDefenseFilter.doFilterInternal(request, response, filterChain);
+
+        assertEquals(200, response.getStatus());
+    }
+
+    @Test
+    @DisplayName("POST com Origin do DuckDNS com barra final deve ser permitido")
+    void postComOriginDuckDnsComBarraDeveSerPermitido() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/empresas");
+        request.addHeader("Origin", "http://websitevertex.duckdns.org/");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain filterChain = new MockFilterChain();
+
+        csrfDefenseFilter.doFilterInternal(request, response, filterChain);
+
+        assertEquals(200, response.getStatus());
+    }
+
+    @Test
+    @DisplayName("POST com Referer do DuckDNS deve ser permitido")
+    void postComRefererDuckDnsDeveSerPermitido() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/empresas");
+        request.addHeader("Referer", "http://websitevertex.duckdns.org/pesquisas");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain filterChain = new MockFilterChain();
+
+        csrfDefenseFilter.doFilterInternal(request, response, filterChain);
+
+        assertEquals(200, response.getStatus());
+    }
 }

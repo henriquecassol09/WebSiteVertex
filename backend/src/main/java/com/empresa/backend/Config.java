@@ -22,6 +22,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -62,7 +63,7 @@ public class Config {
                     .maxAgeInSeconds(31536000))
                 .referrerPolicy(rp -> rp.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                 .contentSecurityPolicy(csp -> csp.policyDirectives(
-                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"))
+                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: http: blob:; connect-src 'self' https: http:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"))
                 .permissionsPolicy(p -> p.policy(
                     "geolocation=(), microphone=(), camera=(), payment=()"))
             )
@@ -98,12 +99,26 @@ public class Config {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+        List<String> origins = new ArrayList<>(Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
+                .map(s -> s.endsWith("/") ? s.substring(0, s.length() - 1) : s)
                 .filter(origin -> !origin.isEmpty())
-                .toList();
+                .toList());
+
+        if (!origins.contains("http://websitevertex.duckdns.org")) {
+            origins.add("http://websitevertex.duckdns.org");
+        }
+        if (!origins.contains("https://websitevertex.duckdns.org")) {
+            origins.add("https://websitevertex.duckdns.org");
+        }
 
         configuration.setAllowedOrigins(origins);
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost*",
+                "http://127.0.0.1*",
+                "http://websitevertex.duckdns.org*",
+                "https://websitevertex.duckdns.org*"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin", "X-CSRF-Token", "X-CSRF-Protection"));
         configuration.setExposedHeaders(List.of("Authorization", "X-CSRF-Token"));

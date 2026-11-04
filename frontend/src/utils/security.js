@@ -44,7 +44,9 @@ export const sanitizarUrlFoto = (url) => {
   }
 
   // 2. URLs externas: Apenas HTTPS é permitido
-  if (!limpa.toLowerCase().startsWith('https://')) {
+  const isHttps = limpa.toLowerCase().startsWith('https://');
+  const isDuckDns = limpa.toLowerCase().startsWith('http://websitevertex.duckdns.org') || limpa.toLowerCase().startsWith('https://websitevertex.duckdns.org');
+  if (!isHttps && !isDuckDns) {
     return null;
   }
 
@@ -59,7 +61,7 @@ export const sanitizarUrlFoto = (url) => {
   }
 
   // Bloqueio de endereços locais
-  const hostMatch = limpa.match(/^https:\/\/([^\/?#:]+)/i);
+  const hostMatch = limpa.match(/^https?:\/\/([^/?#:]+)/i);
   if (hostMatch) {
     const host = hostMatch[1].toLowerCase();
     if (host === 'localhost' || host.startsWith('127.') || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('169.254.') || host === '0.0.0.0') {

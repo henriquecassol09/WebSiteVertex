@@ -215,10 +215,12 @@ record PesquisaResponse(
                 + (endereco != null ? endereco : "") + " "
                 + (raw != null ? raw : "")).toLowerCase();
 
-        for (CidadeHelper.CidadeInfo c : CidadeHelper.CIDADES_CITADAS) {
-            if (textoBusca.contains(c.nome().toLowerCase())) {
-                cidade = c.nome();
-                break;
+        if (cidade == null || cidade.isBlank()) {
+            for (CidadeHelper.CidadeInfo c : CidadeHelper.CIDADES_CITADAS) {
+                if (textoBusca.contains(c.nome().toLowerCase())) {
+                    cidade = c.nome();
+                    break;
+                }
             }
         }
 

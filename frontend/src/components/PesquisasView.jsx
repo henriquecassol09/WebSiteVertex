@@ -91,7 +91,7 @@ export const PesquisasView = () => {
   const handleRealizarBusca = async () => {
     setSegundosDecorridos(0);
     setBuscandoOverpass(true);
-    toast.info('Busca iniciada. Estimativa de tempo: de 1 a 3 minutos.', 10000);
+    toast.info('Buscando estabelecimentos em todas as 6 cidades da região...', 8000);
 
     try {
       await api.pesquisas.prospectarRegiao();
@@ -323,12 +323,6 @@ export const PesquisasView = () => {
     if (filtroEmail === 'sem' && temEmail) return false;
 
     return true;
-  }).sort((a, b) => {
-    const aIsPb = (a.cidade || a.regiao || '').toLowerCase().includes('porto barreiro');
-    const bIsPb = (b.cidade || b.regiao || '').toLowerCase().includes('porto barreiro');
-    if (aIsPb && !bIsPb) return 1;
-    if (!aIsPb && bIsPb) return -1;
-    return 0;
   });
 
   return (

@@ -197,13 +197,18 @@ public class ProspeccaoService {
             List<Pesquisa> pesquisas = pesquisaRepository.findByIdUsuario(idUsuario, PageRequest.of(0, 500)).getContent();
             for (Pesquisa p : pesquisas) {
                 PesquisaResponse resp = PesquisaResponse.from(p);
-                if (!CidadeHelper.isCidadeCitada(resp.cidade())) {
+                String consLow = (p.getConsulta() != null ? p.getConsulta() : "").toLowerCase();
+                boolean entidadeFantasma = consLow.contains("usina solar") || consLow.contains("locacao de usina") ||
+                        consLow.contains("holding") || consLow.contains("administracao de bens") ||
+                        consLow.contains("participacoes ltda");
+
+                if (!CidadeHelper.isCidadeCitada(resp.cidade()) || entidadeFantasma) {
                     pesquisaRepository.delete(p);
-                    log.info("Pesquisa higienizada (cidade não citada '{}'): {}", resp.cidade(), p.getConsulta());
+                    log.info("Pesquisa higienizada (cidade ou entidade inválida '{}'): {}", resp.cidade(), p.getConsulta());
                 }
             }
         } catch (Exception e) {
-            log.warn("Aviso ao higienizar pesquisas com cidades não citadas: {}", e.getMessage());
+            log.warn("Aviso ao higienizar pesquisas: {}", e.getMessage());
         }
     }
 
@@ -348,14 +353,26 @@ public class ProspeccaoService {
                 if (razaoSocialOficial != null && !razaoSocialOficial.isBlank()) {
                     meta.put("razaoSocial", razaoSocialOficial);
                 }
-                boolean temCoords = (!Double.isNaN(lat) && !Double.isNaN(lon) && (lat != 0.0 || lon != 0.0));
+                boolean temCoords = (!Double.isNaN(lat) && !Double.isNaN(lon) && (lat != 0.0 || lon != 0.0) && CidadeHelper.isCoordenadaValidaParaCidade(lat, lon, cidade));
+                if (!temCoords) {
+                    // Tenta buscar localização via Tavily caso Overpass não encontre coordenadas válidas na cidade
+                    double[] coordsTavily = buscarCoordenadasViaTavily(nome, enderecoLimpo, cidade);
+                    if (coordsTavily != null) {
+                        lat = coordsTavily[0];
+                        lon = coordsTavily[1];
+                        temCoords = true;
+                    }
+                }
+
                 if (temCoords) {
                     meta.put("latitude", String.valueOf(lat));
                     meta.put("longitude", String.valueOf(lon));
+                    meta.put("localizacaoConfirmada", "true");
+                    meta.put("tipoLocalizacao", "EXATA");
+                } else {
+                    meta.put("localizacaoConfirmada", "false");
+                    meta.put("tipoLocalizacao", "APROXIMADA");
                 }
-                boolean temEndereco = (enderecoLimpo != null && !enderecoLimpo.isBlank() && !enderecoLimpo.equalsIgnoreCase("Centro"));
-                meta.put("localizacaoConfirmada", String.valueOf(temCoords || temEndereco));
-                meta.put("tipoLocalizacao", (temCoords && temEndereco) ? "EXATA" : (temCoords ? "GPS" : (temEndereco ? "ENDERECO" : "APROXIMADA")));
 
                 String regiaoJson = objectMapper.writeValueAsString(meta);
 
@@ -1038,7 +1055,7 @@ public class ProspeccaoService {
 
         int novasEmpresas = 0;
         try {
-            String q = String.format("site:cnpj.biz OR site:casadosdados.com.br \"%s\" %s", cidadeCanonica, estado != null ? estado : "PR");
+            String q = String.format("site:cnpj.biz OR site:casadosdados.com.br \"%s\" PR (comercio OR loja OR mercado OR restaurante OR farmacia OR oficina OR posto OR servicos OR padaria OR auto)", cidadeCanonica);
 
             Set<String> cnpjsEncontrados = new java.util.LinkedHashSet<>();
             Map<String, String> nomesPorCnpj = new LinkedHashMap<>();
@@ -1112,7 +1129,9 @@ public class ProspeccaoService {
                         String nl = nomePreliminar.toLowerCase();
                         if (nl.contains("podemos") || nl.contains("partido") || nl.contains("diretorio") ||
                             nl.contains("municipio de") || nl.contains("prefeitura") || nl.contains("camara municipal") ||
-                            nl.contains("lista de empresas") || nl.contains("maiores empresas")) {
+                            nl.contains("lista de empresas") || nl.contains("maiores empresas") ||
+                            nl.contains("usina solar") || nl.contains("locacao de usina") || nl.contains("holding") ||
+                            nl.contains("administracao de bens") || nl.contains("participacoes ltda")) {
                             continue;
                         }
                     }
@@ -1147,7 +1166,9 @@ public class ProspeccaoService {
 
                     String nomeCheck = nome.toLowerCase();
                     if (nomeCheck.contains("podemos") || nomeCheck.contains("partido") || nomeCheck.contains("diretorio") ||
-                        nomeCheck.contains("municipio de") || nomeCheck.contains("prefeitura") || nomeCheck.contains("camara municipal")) {
+                        nomeCheck.contains("municipio de") || nomeCheck.contains("prefeitura") || nomeCheck.contains("camara municipal") ||
+                        nomeCheck.contains("usina solar") || nomeCheck.contains("locacao de usina") || nomeCheck.contains("holding") ||
+                        nomeCheck.contains("administracao de bens") || nomeCheck.contains("participacoes ltda")) {
                         continue;
                     }
 
@@ -1190,9 +1211,17 @@ public class ProspeccaoService {
                     if (razaoSocial != null && !razaoSocial.isBlank()) {
                         meta.put("razaoSocial", razaoSocial);
                     }
-                    boolean temEndereco = (endereco != null && !endereco.isBlank());
-                    meta.put("localizacaoConfirmada", String.valueOf(temEndereco));
-                    meta.put("tipoLocalizacao", temEndereco ? "ENDERECO" : "APROXIMADA");
+                    double[] coordsTavily = buscarCoordenadasViaTavily(nome, endereco, cidadeFinal);
+                    boolean temCoords = (coordsTavily != null);
+                    if (temCoords) {
+                        meta.put("latitude", String.valueOf(coordsTavily[0]));
+                        meta.put("longitude", String.valueOf(coordsTavily[1]));
+                        meta.put("localizacaoConfirmada", "true");
+                        meta.put("tipoLocalizacao", "EXATA");
+                    } else {
+                        meta.put("localizacaoConfirmada", "false");
+                        meta.put("tipoLocalizacao", "APROXIMADA");
+                    }
 
                     String regiaoJson = objectMapper.writeValueAsString(meta);
 
@@ -1218,6 +1247,53 @@ public class ProspeccaoService {
         }
 
         return novasEmpresas;
+    }
+
+    public double[] buscarCoordenadasViaTavily(String nome, String endereco, String cidade) {
+        if (tavilyApiKey == null || tavilyApiKey.isBlank() || nome == null || cidade == null) {
+            return null;
+        }
+        try {
+            String q = String.format("\"%s\" \"%s\" PR (maps OR coordenadas OR localizacao)", nome, cidade);
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("api_key", tavilyApiKey);
+            payload.put("query", q);
+            payload.put("search_depth", "basic");
+            payload.put("max_results", 3);
+
+            String jsonPayload = objectMapper.writeValueAsString(payload);
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(TAVILY_API_URL))
+                    .timeout(Duration.ofSeconds(3))
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                    .build();
+
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() == 200 && resp.body() != null && resp.body().trim().startsWith("{")) {
+                JsonNode root = objectMapper.readTree(resp.body());
+                JsonNode results = root.path("results");
+                if (results.isArray()) {
+                    Pattern coordPattern = Pattern.compile("(-25\\.\\d{3,})[\\s,/]+(-5[12]\\.\\d{3,})");
+                    for (JsonNode res : results) {
+                        String texto = res.path("url").asText("") + " " + res.path("content").asText("") + " " + res.path("title").asText("");
+                        Matcher m = coordPattern.matcher(texto);
+                        if (m.find()) {
+                            double lat = Double.parseDouble(m.group(1));
+                            double lon = Double.parseDouble(m.group(2));
+                            if (CidadeHelper.isCoordenadaValidaParaCidade(lat, lon, cidade)) {
+                                log.info("Tavily localizou coordenadas confirmadas para '{}' em {}: {}, {}", nome, cidade, lat, lon);
+                                return new double[]{lat, lon};
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Tavily busca de coordenadas para '{}' em {}: {}", nome, cidade, e.getMessage());
+        }
+        return null;
     }
 
     private String limparNomePreliminar(String raw, String cnpj) {

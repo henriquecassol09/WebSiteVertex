@@ -249,23 +249,13 @@ record PesquisaResponse(
             cidade = "Laranjeiras do Sul";
         }
 
-        boolean temCoordenadas = (latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0));
-        boolean temEndereco = (endereco != null && !endereco.isBlank());
-
-        if (localizacaoConfirmada == null) {
-            localizacaoConfirmada = temCoordenadas || temEndereco;
+        boolean temCoordenadas = (latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0) && CidadeHelper.isCoordenadaValidaParaCidade(latitude, longitude, cidade));
+        if (!temCoordenadas) {
+            latitude = null;
+            longitude = null;
         }
-        if (tipoLocalizacao == null) {
-            if (temCoordenadas && temEndereco) {
-                tipoLocalizacao = "EXATA";
-            } else if (temCoordenadas) {
-                tipoLocalizacao = "GPS";
-            } else if (temEndereco) {
-                tipoLocalizacao = "ENDERECO";
-            } else {
-                tipoLocalizacao = "APROXIMADA";
-            }
-        }
+        localizacaoConfirmada = temCoordenadas;
+        tipoLocalizacao = temCoordenadas ? "EXATA" : "APROXIMADA";
 
         String regiaoFormatada = cidade + " - " + estado;
         String categoriaRefinada = CategoriaDetector.refinar(categoria, p.getConsulta());
@@ -359,12 +349,13 @@ record EmpresaResponse(
             } catch (Exception ignored) {}
         }
 
-        boolean temCoords = (lat != null && lon != null && (lat != 0.0 || lon != 0.0));
-        boolean temEndereco = (!endereco.isBlank());
-        if (confirmada == null) confirmada = temCoords || temEndereco;
-        if (tipo == null) {
-            tipo = (temCoords && temEndereco) ? "EXATA" : (temCoords ? "GPS" : (temEndereco ? "ENDERECO" : "APROXIMADA"));
+        boolean temCoords = (lat != null && lon != null && (lat != 0.0 || lon != 0.0) && CidadeHelper.isCoordenadaValidaParaCidade(lat, lon, cidade));
+        if (!temCoords) {
+            lat = null;
+            lon = null;
         }
+        confirmada = temCoords;
+        tipo = temCoords ? "EXATA" : "APROXIMADA";
 
         return new EmpresaResponse(
                 e.getIdEmpresa(), e.getNome(), cat, cidade,

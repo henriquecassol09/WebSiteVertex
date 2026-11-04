@@ -80,4 +80,21 @@ class CidadeHelperTest {
         CidadeHelper.CidadeInfo infoLonge = CidadeHelper.identificarCidade(-23.5505, -46.6333, null); // São Paulo
         assertNull(infoLonge);
     }
+
+    @Test
+    @DisplayName("Deve validar se a coordenada pertence ao município especificado")
+    void deveValidarCoordenadaParaCidade() {
+        // Coordenada válida no centro de Laranjeiras do Sul
+        assertTrue(CidadeHelper.isCoordenadaValidaParaCidade(-25.4086, -52.4161, "Laranjeiras do Sul"));
+        // Coordenada válida em Cantagalo
+        assertTrue(CidadeHelper.isCoordenadaValidaParaCidade(-25.3744, -52.0089, "Cantagalo"));
+
+        // Coordenada de São Paulo ou Londrina não deve ser aceita para Laranjeiras do Sul
+        assertFalse(CidadeHelper.isCoordenadaValidaParaCidade(-23.5505, -46.6333, "Laranjeiras do Sul"));
+        assertFalse(CidadeHelper.isCoordenadaValidaParaCidade(-23.3045, -51.1696, "Cantagalo"));
+
+        // Coordenada nula ou zero
+        assertFalse(CidadeHelper.isCoordenadaValidaParaCidade(null, null, "Laranjeiras do Sul"));
+        assertFalse(CidadeHelper.isCoordenadaValidaParaCidade(0.0, 0.0, "Laranjeiras do Sul"));
+    }
 }

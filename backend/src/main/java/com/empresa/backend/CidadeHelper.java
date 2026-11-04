@@ -64,10 +64,26 @@ public final class CidadeHelper {
         return null;
     }
 
+    public static boolean isCoordenadaValidaParaCidade(Double lat, Double lon, String nomeCidade) {
+        if (lat == null || lon == null || Double.isNaN(lat) || Double.isNaN(lon) || (lat == 0.0 && lon == 0.0)) {
+            return false;
+        }
+        CidadeInfo info = buscarInfoPorNome(nomeCidade);
+        if (info == null) return false;
+        double d = Math.hypot(lat - info.lat(), lon - info.lon());
+        return d <= 0.20; // Raio maximo de ~22 km a partir do centro do municipio
+    }
+
     public static CidadeInfo identificarCidade(double lat, double lon, String cidadeInformada) {
         if (cidadeInformada != null && !cidadeInformada.isBlank()) {
             CidadeInfo info = buscarInfoPorNome(cidadeInformada);
             if (info != null) {
+                if (!Double.isNaN(lat) && !Double.isNaN(lon) && (lat != 0.0 || lon != 0.0)) {
+                    double d = Math.hypot(lat - info.lat(), lon - info.lon());
+                    if (d > 0.25) {
+                        return null; // Coordenadas fora dos limites do municipio informado
+                    }
+                }
                 return info;
             }
             return null; // Rejeita qualquer cidade fora do cadastro oficial

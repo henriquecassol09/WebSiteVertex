@@ -152,7 +152,7 @@ public class DosDefenseFilter extends OncePerRequestFilter {
 
     private void registrarViolacao(String ip) {
         int contagem = violacoesPorIp.computeIfAbsent(ip, k -> new AtomicInteger(0)).incrementAndGet();
-        if (contagem >= 20) {
+        if (contagem >= 5) {
             log.error("DoS Defense: IP {} atingiu {} violacoes. Aplicando quarentena temporaria de {} minutos.",
                     ip, contagem, jailMinutes);
             quarentenaIps.put(ip, Instant.now().plus(Duration.ofMinutes(jailMinutes)));

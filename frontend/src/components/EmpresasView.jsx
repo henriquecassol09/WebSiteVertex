@@ -29,8 +29,7 @@ export const EmpresasView = () => {
   const [empresas, setEmpresas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [pageSize] = useState(10);
-  const [pageData, setPageData] = useState({ totalElements: 0, totalPages: 1 });
+  const pageSize = 50;
 
   const toast = useToast();
 
@@ -175,17 +174,13 @@ export const EmpresasView = () => {
 
   useEffect(() => {
     carregarEmpresas();
-  }, [page]);
+  }, []);
 
   const carregarEmpresas = async () => {
     setLoading(true);
     try {
-      const res = await api.empresas.listar(page, pageSize);
-      setEmpresas(res?.content || []);
-      setPageData({
-        totalElements: res?.totalElements || 0,
-        totalPages: res?.totalPages || 1,
-      });
+      const res = await api.empresas.listarTodas();
+      setEmpresas(res || []);
     } catch {
       setEmpresas([]);
     } finally {
@@ -193,14 +188,12 @@ export const EmpresasView = () => {
     }
   };
 
-
   const handleExcluir = async (idEmpresa) => {
     if (!confirm('Deseja realmente excluir esta empresa?')) return;
 
     try {
       await api.empresas.excluir(idEmpresa);
-      setEmpresas(empresas.filter((e) => e.idEmpresa !== idEmpresa));
-      setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
+      setEmpresas((prev) => prev.filter((e) => e.idEmpresa !== idEmpresa));
       if (empresaSelecionada?.idEmpresa === idEmpresa) {
         setEmpresaSelecionada(null);
       }
@@ -219,60 +212,80 @@ export const EmpresasView = () => {
     return cnpj;
   };
 
-  const empresasFiltradas = empresas.filter((emp) => {
-    const cat = detectarCategoria(emp.categoria, emp.nome);
+  useEffect(() => {
+    setPage(0);
+  }, [filtroTexto, filtroCategoria, filtroCidades, filtroWebsite, filtroTelefone, filtroEmail]);
 
-    if (filtroTexto.trim() !== '') {
-      const termo = filtroTexto.toLowerCase().trim();
-      const matchTexto =
-        emp.nome?.toLowerCase().includes(termo) ||
-        emp.cidade?.toLowerCase().includes(termo) ||
-        cat?.toLowerCase().includes(termo) ||
-        emp.email?.toLowerCase().includes(termo) ||
-        emp.cnpj?.toLowerCase().includes(termo) ||
-        emp.telefone?.toLowerCase().includes(termo) ||
-        emp.endereco?.toLowerCase().includes(termo);
-      if (!matchTexto) return false;
+  const empresasFiltradas = React.useMemo(() => {
+    return empresas.filter((emp) => {
+      const cat = detectarCategoria(emp.categoria, emp.nome);
+
+      if (filtroTexto.trim() !== '') {
+        const termo = filtroTexto.toLowerCase().trim();
+        const matchTexto =
+          emp.nome?.toLowerCase().includes(termo) ||
+          emp.cidade?.toLowerCase().includes(termo) ||
+          cat?.toLowerCase().includes(termo) ||
+          emp.email?.toLowerCase().includes(termo) ||
+          emp.cnpj?.toLowerCase().includes(termo) ||
+          emp.telefone?.toLowerCase().includes(termo) ||
+          emp.endereco?.toLowerCase().includes(termo);
+        if (!matchTexto) return false;
+      }
+
+      if (filtroCategoria !== '' && cat !== filtroCategoria) {
+        return false;
+      }
+
+      if (filtroCidades.length > 0) {
+        const matchCidade = filtroCidades.some((c) => {
+          const cLow = c.toLowerCase().trim();
+          return (
+            emp.cidade?.toLowerCase().includes(cLow) ||
+            emp.endereco?.toLowerCase().includes(cLow)
+          );
+        });
+        if (!matchCidade) return false;
+      }
+
+      const temSite = Boolean(emp.site && emp.site.trim() !== '');
+      if (filtroWebsite === 'com' && !temSite) return false;
+      if (filtroWebsite === 'sem' && temSite) return false;
+
+      const temTelefone = Boolean(
+        emp.telefone && 
+        emp.telefone.toLowerCase() !== 'não informado' && 
+        emp.telefone.trim() !== ''
+      );
+      if (filtroTelefone === 'com' && !temTelefone) return false;
+      if (filtroTelefone === 'sem' && temTelefone) return false;
+
+      const temEmail = Boolean(
+        emp.email && 
+        emp.email.toLowerCase() !== 'não informado' && 
+        emp.email.includes('@') && 
+        !emp.email.includes('empresa.com.br')
+      );
+      if (filtroEmail === 'com' && !temEmail) return false;
+      if (filtroEmail === 'sem' && temEmail) return false;
+
+      return true;
+    });
+  }, [empresas, filtroTexto, filtroCategoria, filtroCidades, filtroWebsite, filtroTelefone, filtroEmail]);
+
+  const totalElements = empresasFiltradas.length;
+  const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
+
+  useEffect(() => {
+    if (page >= totalPages && totalPages > 0) {
+      setPage(Math.max(0, totalPages - 1));
     }
+  }, [page, totalPages]);
 
-    if (filtroCategoria !== '' && cat !== filtroCategoria) {
-      return false;
-    }
-
-    if (filtroCidades.length > 0) {
-      const matchCidade = filtroCidades.some((c) => {
-        const cLow = c.toLowerCase().trim();
-        return (
-          emp.cidade?.toLowerCase().includes(cLow) ||
-          emp.endereco?.toLowerCase().includes(cLow)
-        );
-      });
-      if (!matchCidade) return false;
-    }
-
-    const temSite = Boolean(emp.site && emp.site.trim() !== '');
-    if (filtroWebsite === 'com' && !temSite) return false;
-    if (filtroWebsite === 'sem' && temSite) return false;
-
-    const temTelefone = Boolean(
-      emp.telefone && 
-      emp.telefone.toLowerCase() !== 'não informado' && 
-      emp.telefone.trim() !== ''
-    );
-    if (filtroTelefone === 'com' && !temTelefone) return false;
-    if (filtroTelefone === 'sem' && temTelefone) return false;
-
-    const temEmail = Boolean(
-      emp.email && 
-      emp.email.toLowerCase() !== 'não informado' && 
-      emp.email.includes('@') && 
-      !emp.email.includes('empresa.com.br')
-    );
-    if (filtroEmail === 'com' && !temEmail) return false;
-    if (filtroEmail === 'sem' && temEmail) return false;
-
-    return true;
-  });
+  const empresasPaginadas = React.useMemo(() => {
+    const start = page * pageSize;
+    return empresasFiltradas.slice(start, start + pageSize);
+  }, [empresasFiltradas, page, pageSize]);
 
   const categoriasUnicas = Array.from(
     new Set(empresas.map((e) => detectarCategoria(e.categoria, e.nome)).filter(Boolean))
@@ -379,7 +392,7 @@ export const EmpresasView = () => {
           )}
 
           <div className="text-xs text-vertex-muted dark:text-vertex-dark-muted hidden md:block shrink-0">
-            Exibindo <strong className="text-vertex-dark dark:text-vertex-dark-text">{empresasFiltradas.length}</strong> de <strong className="text-vertex-dark dark:text-vertex-dark-text">{empresas.length}</strong>
+            Exibindo <strong className="text-vertex-dark dark:text-vertex-dark-text">{empresasPaginadas.length}/{empresasFiltradas.length}</strong> {filtrosAtivosCount > 0 && empresasFiltradas.length !== empresas.length ? <span>(total: {empresas.length})</span> : 'empresas'}
           </div>
         </div>
       </div>
@@ -578,11 +591,11 @@ export const EmpresasView = () => {
               ) : empresasFiltradas.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="py-16 text-center text-xs text-vertex-muted dark:text-vertex-dark-muted">
-                    Nenhuma empresa encontrada.
+                    {empresas.length === 0 ? 'Nenhuma empresa salva no sistema.' : 'Nenhuma empresa encontrada com os filtros selecionados.'}
                   </td>
                 </tr>
               ) : (
-                empresasFiltradas.map((emp) => (
+                empresasPaginadas.map((emp) => (
                   <tr
                     key={emp.idEmpresa}
                     className="hover:bg-slate-50/70 dark:hover:bg-vertex-dark-surface/40 transition-colors duration-150 cursor-pointer"
@@ -707,25 +720,27 @@ export const EmpresasView = () => {
         {/* Paginação */}
         <div className="flex items-center justify-between px-5 py-3.5 border-t border-vertex-border dark:border-vertex-dark-border bg-slate-50/40 dark:bg-vertex-dark-surface/40 text-xs text-vertex-muted dark:text-vertex-dark-muted">
           <div>
-            Total: <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text">{pageData.totalElements}</span> empresas
+            Exibindo <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text">{empresasPaginadas.length}/{empresasFiltradas.length}</span> empresas {filtrosAtivosCount > 0 && empresasFiltradas.length !== empresas.length && `(filtradas de ${empresas.length} no total)`}
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-[11px]">
-              Página {page + 1} de {pageData.totalPages || 1}
+              Página {totalPages === 0 ? 0 : page + 1} de {totalPages}
             </span>
             <div className="flex items-center gap-1">
               <button
+                type="button"
                 disabled={page === 0}
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
-                className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150"
+                className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
               <button
-                disabled={page + 1 >= pageData.totalPages}
+                type="button"
+                disabled={page + 1 >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150"
+                className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed"
               >
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>

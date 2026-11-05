@@ -357,6 +357,25 @@ class ApiClient {
       }
     },
 
+    listarTodas: async () => {
+      try {
+        let all = [];
+        let page = 0;
+        let totalPages = 1;
+        while (page < totalPages) {
+          const res = await this.request(`/empresas?page=${page}&size=500`);
+          if (!res || !res.content) break;
+          all.push(...res.content);
+          totalPages = res.totalPages || 1;
+          page++;
+          if (page > 50) break;
+        }
+        return all;
+      } catch {
+        return [];
+      }
+    },
+
     buscar: async (id) => {
       return await this.request(`/empresas/${id}`);
     },
@@ -427,6 +446,25 @@ class ApiClient {
           last: true,
           empty: true,
         };
+      }
+    },
+
+    listarTodas: async () => {
+      try {
+        let all = [];
+        let page = 0;
+        let totalPages = 1;
+        while (page < totalPages) {
+          const res = await this.request(`/pesquisas?page=${page}&size=500`);
+          if (!res || !res.content) break;
+          all.push(...res.content);
+          totalPages = res.totalPages || 1;
+          page++;
+          if (page > 50) break;
+        }
+        return all;
+      } catch {
+        return [];
       }
     },
 

@@ -36,7 +36,6 @@ export const PesquisasView = () => {
   const [segundosDecorridos, setSegundosDecorridos] = useState(0);
   const [page, setPage] = useState(0);
   const pageSize = 50;
-  const [pageData, setPageData] = useState({ totalElements: 0, totalPages: 1 });
 
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [termoBusca, setTermoBusca] = useState('');
@@ -58,17 +57,13 @@ export const PesquisasView = () => {
   useEffect(() => {
     carregarPesquisas();
     carregarEmpresasSalvas();
-  }, [page]);
+  }, []);
 
   const carregarPesquisas = async () => {
     setLoading(true);
     try {
-      const res = await api.pesquisas.listar(page, pageSize);
-      setPesquisas(res?.content || []);
-      setPageData({
-        totalElements: res?.totalElements || 0,
-        totalPages: res?.totalPages || 1,
-      });
+      const res = await api.pesquisas.listarTodas();
+      setPesquisas(res || []);
     } catch {
       setPesquisas([]);
     } finally {
@@ -78,9 +73,9 @@ export const PesquisasView = () => {
 
   const carregarEmpresasSalvas = async () => {
     try {
-      const res = await api.empresas.listar(0, 100);
+      const res = await api.empresas.listarTodas();
       const salvas = new Set();
-      (res?.content || []).forEach((emp) => {
+      (res || []).forEach((emp) => {
         if (emp.idPesquisa) salvas.add(emp.idPesquisa);
       });
       setEmpresasSalvasIds(salvas);
@@ -97,6 +92,8 @@ export const PesquisasView = () => {
       await api.pesquisas.prospectarRegiao();
       toast.success('Busca concluída com sucesso!');
       await carregarPesquisas();
+      await carregarEmpresasSalvas();
+      setPage(0);
     } catch (err) {
       toast.error(err.message || 'Erro ao realizar busca');
     } finally {
@@ -182,7 +179,6 @@ export const PesquisasView = () => {
 
       setPesquisas((prev) => prev.filter((item) => item.idPesquisa !== p.idPesquisa && item.consulta.toLowerCase() !== p.consulta.toLowerCase()));
       setEmpresasSalvasIds((prev) => new Set([...prev, p.idPesquisa]));
-      setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
 
       toast.success(`"${p.consulta}" salva com sucesso! Movida para a aba Empresas.`);
     } catch (err) {
@@ -197,7 +193,6 @@ export const PesquisasView = () => {
     try {
       await api.pesquisas.excluir(idPesquisa);
       setPesquisas((prev) => prev.filter((p) => p.idPesquisa !== idPesquisa));
-      setPageData((prev) => ({ ...prev, totalElements: Math.max(0, prev.totalElements - 1) }));
       toast.success('Busca excluída com sucesso');
     } catch (err) {
       toast.error(err.message || 'Erro ao excluir busca');
@@ -331,6 +326,24 @@ export const PesquisasView = () => {
     return 0;
   });
 
+  useEffect(() => {
+    setPage(0);
+  }, [termoBusca, filtroCidades, filtroWebsite, filtroTelefone, filtroEmail]);
+
+  const totalElements = pesquisasFiltradas.length;
+  const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
+
+  useEffect(() => {
+    if (page >= totalPages && totalPages > 0) {
+      setPage(Math.max(0, totalPages - 1));
+    }
+  }, [page, totalPages]);
+
+  const pesquisasPaginadas = React.useMemo(() => {
+    const start = page * pageSize;
+    return pesquisasFiltradas.slice(start, start + pageSize);
+  }, [pesquisasFiltradas, page, pageSize]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
@@ -438,7 +451,7 @@ export const PesquisasView = () => {
         </div>
 
         <div className="text-xs text-vertex-muted dark:text-vertex-dark-muted hidden md:block">
-          Exibindo <strong className="text-vertex-dark dark:text-vertex-dark-text">{pesquisasFiltradas.length}</strong> de <strong className="text-vertex-dark dark:text-vertex-dark-text">{pesquisas.length}</strong>
+          Exibindo <strong className="text-vertex-dark dark:text-vertex-dark-text">{pesquisasPaginadas.length}/{pesquisasFiltradas.length}</strong> {filtrosAtivosCount > 0 && pesquisasFiltradas.length !== pesquisas.length ? <span>(total: {pesquisas.length})</span> : 'empresas'}
         </div>
       </div>
 
@@ -650,7 +663,7 @@ export const PesquisasView = () => {
                   </td>
                 </tr>
               ) : (
-                pesquisasFiltradas.map((p) => {
+                pesquisasPaginadas.map((p) => {
                   const jaSalva = empresasSalvasIds.has(p.idPesquisa);
                   const isSalvando = salvandoId === p.idPesquisa;
 
@@ -830,12 +843,12 @@ export const PesquisasView = () => {
 
         <div className="flex items-center justify-between px-5 py-3.5 border-t border-vertex-border dark:border-vertex-dark-border bg-slate-50/40 dark:bg-vertex-dark-surface/40 text-xs text-vertex-muted dark:text-vertex-dark-muted">
           <div>
-            Total: <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text">{pesquisasFiltradas.length}</span> empresas {filtrosAtivosCount > 0 && `(filtradas de ${pesquisas.length})`}
+            Exibindo <span className="font-semibold text-vertex-dark dark:text-vertex-dark-text">{pesquisasPaginadas.length}/{pesquisasFiltradas.length}</span> empresas {filtrosAtivosCount > 0 && pesquisasFiltradas.length !== pesquisas.length && `(filtradas de ${pesquisas.length} no total)`}
           </div>
 
           <div className="flex items-center gap-2">
             <span className="text-[11px]">
-              Página {page + 1} de {pageData.totalPages || 1}
+              Página {totalPages === 0 ? 0 : page + 1} de {totalPages}
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -848,7 +861,7 @@ export const PesquisasView = () => {
               </button>
               <button
                 type="button"
-                disabled={page + 1 >= pageData.totalPages}
+                disabled={page + 1 >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 className="p-1.5 rounded-md border border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card hover:bg-slate-50 dark:hover:bg-vertex-dark-surface text-vertex-dark dark:text-vertex-dark-text disabled:opacity-30 active:scale-95 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed"
               >

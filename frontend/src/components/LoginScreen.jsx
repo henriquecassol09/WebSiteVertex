@@ -3,8 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import { ThemeToggle } from './ThemeToggle';
-import logoClaro from '../assets/vertexClaro.png';
-import logoEscuro from '../assets/vertexEscuro.png';
+import { VertexLogo } from './Logo';
 import { 
   Mail, 
   Lock, 
@@ -231,18 +230,10 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
       <div className="relative z-10 w-full max-w-[420px] bg-white dark:bg-vertex-dark-card border border-gray-200 dark:border-vertex-dark-border rounded-2xl shadow-elevated dark:shadow-dark-card px-4 py-5 xs:px-6 xs:py-6 sm:px-8 sm:py-7 my-auto transition-colors duration-700 ease-in-out">
         <div className="text-center mb-4 sm:mb-5">
           <div className="flex items-center justify-center mb-2.5 sm:mb-3">
-            <div className="w-32 sm:w-36 h-9 sm:h-10 flex items-center justify-center">
-              <img
-                src={logoClaro}
-                alt="Logo Tema Claro"
-                className="w-full h-full object-contain block dark:hidden transition-transform duration-200 hover:scale-105"
-              />
-              <img
-                src={logoEscuro}
-                alt="Logo Tema Escuro"
-                className="w-full h-full object-contain hidden dark:block transition-transform duration-200 hover:scale-105"
-              />
-            </div>
+            <VertexLogo 
+              className="h-9 sm:h-10 w-auto" 
+              imgClassName="transition-transform duration-200 hover:scale-105" 
+            />
           </div>
 
           <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-vertex-dark-text">

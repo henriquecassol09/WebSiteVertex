@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import logoClaro from '../assets/vertexClaro.png';
-import logoEscuro from '../assets/vertexEscuro.png';
 import { ThemeToggle } from './ThemeToggle';
+import { VertexLogo } from './Logo';
 import { useAuth } from '../context/AuthContext';
 import { 
   Building2, 
@@ -46,16 +45,7 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
               onClick={() => onViewChange('pesquisas')}
             >
               <div className="flex items-center">
-                <img
-                  src={logoClaro}
-                  alt="VERTEX"
-                  className="h-8 md:h-10 w-auto object-contain max-w-[160px] block dark:hidden"
-                />
-                <img
-                  src={logoEscuro}
-                  alt="VERTEX"
-                  className="h-8 md:h-10 w-auto object-contain max-w-[160px] hidden dark:block"
-                />
+                <VertexLogo className="h-9 sm:h-10 w-auto" />
               </div>
             </div>
 

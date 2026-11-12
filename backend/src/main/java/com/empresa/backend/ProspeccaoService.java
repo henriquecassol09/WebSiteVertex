@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -26,15 +27,31 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ProspeccaoService {
 
     private final PesquisaRepository pesquisaRepository;
     private final EmpresaRepository empresaRepository;
     private final ObjectMapper objectMapper;
+    private final TavilyApiKeyRotator tavilyApiKeyRotator;
 
-    @Value("${app.tavily.api-key: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}")
-    private String tavilyApiKey = "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";
+    @org.springframework.beans.factory.annotation.Autowired
+    public ProspeccaoService(
+            PesquisaRepository pesquisaRepository,
+            EmpresaRepository empresaRepository,
+            ObjectMapper objectMapper,
+            TavilyApiKeyRotator tavilyApiKeyRotator) {
+        this.pesquisaRepository = pesquisaRepository;
+        this.empresaRepository = empresaRepository;
+        this.objectMapper = objectMapper;
+        this.tavilyApiKeyRotator = tavilyApiKeyRotator != null ? tavilyApiKeyRotator : new TavilyApiKeyRotator();
+    }
+
+    public ProspeccaoService(
+            PesquisaRepository pesquisaRepository,
+            EmpresaRepository empresaRepository,
+            ObjectMapper objectMapper) {
+        this(pesquisaRepository, empresaRepository, objectMapper, new TavilyApiKeyRotator());
+    }
 
     private static final String[] OVERPASS_SERVERS = {
             "https://overpass.openstreetmap.fr/api/interpreter",
@@ -58,8 +75,194 @@ public class ProspeccaoService {
     );
 
     private static final Set<String> TIPOS_IGNORADOS = Set.of(
-            "fountain", "police", "fire_station", "townhall", "school", "bus_station", "library", "charging_station"
+            "fountain", "police", "fire_station", "townhall", "school", "bus_station",
+            "library", "charging_station", "courthouse", "place_of_worship", "graveyard",
+            "cemetery", "public_building"
     );
+
+    /**
+     * Validador e filtro de estabelecimentos unificado para TODAS as APIs:
+     * Descarta entidades públicas/governamentais, cartórios, colégios públicos,
+     * postos policiais, igrejas/capelas mortuárias, partidos políticos e nomes inválidos.
+     */
+    public static boolean isEstabelecimentoInvalido(String nome, String tipo) {
+        if (nome == null || nome.trim().length() < 2) {
+            return true;
+        }
+
+        String nomeLimpo = nome.trim();
+        String nomeLower = CidadeHelper.removerAcentos(nomeLimpo).toLowerCase(java.util.Locale.ROOT);
+
+        // Nomes que começam com logradouros puros
+        if (nomeLower.startsWith("rua ") || nomeLower.startsWith("avenida ") ||
+            nomeLower.startsWith("rodovia ") || nomeLower.startsWith("alameda ") ||
+            nomeLower.startsWith("linha ") || nomeLower.startsWith("travessa ") ||
+            nomeLower.startsWith("estrada ") || nomeLower.startsWith("praca ")) {
+            return true;
+        }
+
+        // Nomes que são apenas dígitos ou formato de CNPJ
+        String apenasDigitos = nomeLimpo.replaceAll("\\D", "");
+        if (apenasDigitos.length() >= 8 && nomeLimpo.replaceAll("[0-9./\\-\\s]", "").isEmpty()) {
+            return true;
+        }
+
+        // Tipos ignorados do OSM
+        if (tipo != null && !tipo.isBlank() && TIPOS_IGNORADOS.contains(tipo.toLowerCase(java.util.Locale.ROOT).trim())) {
+            return true;
+        }
+
+        // Entidades públicas, governamentais, cartorárias, escolares públicas ou eleitorais
+        if (nomeLower.contains("prefeitura") ||
+            nomeLower.contains("camara municipal") ||
+            nomeLower.contains("camara de vereadores") ||
+            nomeLower.contains("secretaria municipal") ||
+            nomeLower.contains("secretaria de ") ||
+            nomeLower.contains("fundo municipal") ||
+            nomeLower.contains("conselho tutelar") ||
+            nomeLower.contains("municipio de ") ||
+            nomeLower.contains("forum eleitoral") ||
+            nomeLower.contains("tabelionato") ||
+            nomeLower.contains("cartorio") ||
+            nomeLower.contains("registro civil") ||
+            nomeLower.contains("servico distrital") ||
+            nomeLower.contains("escola municipal") ||
+            nomeLower.contains("escola estadual") ||
+            nomeLower.contains("colegio estadual") ||
+            nomeLower.contains("creche municipal") ||
+            nomeLower.contains("cemei") ||
+            nomeLower.contains("policia militar") ||
+            nomeLower.contains("policia civil") ||
+            nomeLower.contains("corpo de bombeiros") ||
+            nomeLower.contains("delegacia") ||
+            nomeLower.contains("destacamento policial") ||
+            nomeLower.contains("partido ") ||
+            nomeLower.contains("diretorio municipal") ||
+            nomeLower.contains("diretorio estadual") ||
+            nomeLower.contains("comite financeiro") ||
+            nomeLower.contains("eleicao ") ||
+            nomeLower.contains("cemiterio") ||
+            nomeLower.contains("capela mortuaria") ||
+            nomeLower.contains("lista de empresas") ||
+            nomeLower.contains("maiores empresas")) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Salva ou enriquece as informações de uma busca no banco de dados.
+     * Aplica os filtros universais para todas as APIs e assegura que nenhuma informação útil seja descartada.
+     */
+    public boolean salvarOuAtualizarPesquisa(
+            String idUsuario,
+            String nome,
+            String endereco,
+            String cidade,
+            String estado,
+            String categoria,
+            String horario,
+            String telefone,
+            String email,
+            String site,
+            String cnpj,
+            String razaoSocial,
+            Double latitude,
+            Double longitude,
+            String tipoOrigem) {
+
+        if (nome == null || nome.trim().isBlank()) {
+            return false;
+        }
+
+        String nomeFinal = nome.trim();
+        if (isEstabelecimentoInvalido(nomeFinal, null)) {
+            return false;
+        }
+
+        if (!CidadeHelper.isCidadeCitada(cidade)) {
+            return false;
+        }
+
+        String cidadeNormalizada = CidadeHelper.normalizarCidade(cidade);
+
+        // Se a empresa já foi salva pelo usuário como cliente na aba Empresas, não recria em Buscas
+        if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nomeFinal)) {
+            return false;
+        }
+
+        try {
+            Map<String, String> meta = new LinkedHashMap<>();
+            meta.put("endereco", endereco != null ? endereco.trim() : "");
+            meta.put("cidade", cidadeNormalizada);
+            meta.put("estado", estado != null ? estado : "PR");
+            meta.put("categoria", categoria != null ? categoria : "Comércio e Serviços");
+            meta.put("horario", horario != null ? horario : "Seg a Sex 08:00 - 18:00");
+            meta.put("telefone", telefone != null ? telefone : "Não informado");
+            meta.put("email", email != null ? email : "Não informado");
+            meta.put("site", site != null ? site : "");
+            if (cnpj != null && !cnpj.isBlank()) {
+                meta.put("cnpj", formatarCnpjMascara(cnpj));
+            }
+            if (razaoSocial != null && !razaoSocial.isBlank()) {
+                meta.put("razaoSocial", razaoSocial);
+            }
+            boolean temCoords = (latitude != null && longitude != null && !latitude.isNaN() && !longitude.isNaN() && (latitude != 0.0 || longitude != 0.0));
+            if (temCoords) {
+                meta.put("latitude", String.valueOf(latitude));
+                meta.put("longitude", String.valueOf(longitude));
+            }
+            boolean temEndereco = (endereco != null && !endereco.isBlank() && !endereco.equalsIgnoreCase("Centro"));
+            meta.put("localizacaoConfirmada", String.valueOf(temCoords || temEndereco));
+            meta.put("tipoLocalizacao", (temCoords && temEndereco) ? "EXATA" : (temCoords ? "GPS" : (temEndereco ? "ENDERECO" : "APROXIMADA")));
+
+            String regiaoJson = objectMapper.writeValueAsString(meta);
+
+            // Se a busca já existe no banco, enriquece com as informações novas encontradas
+            Optional<Pesquisa> existenteOpt = pesquisaRepository.findFirstByIdUsuarioAndConsultaIgnoreCase(idUsuario, nomeFinal);
+            if (existenteOpt.isPresent()) {
+                Pesquisa existente = existenteOpt.get();
+                PesquisaResponse respAntiga = PesquisaResponse.from(existente);
+                boolean precisaAtualizar = false;
+
+                if ((respAntiga.cnpj() == null || respAntiga.cnpj().isBlank()) && (cnpj != null && !cnpj.isBlank())) {
+                    precisaAtualizar = true;
+                }
+                if (("Não informado".equalsIgnoreCase(respAntiga.telefone()) || respAntiga.telefone() == null) &&
+                    (telefone != null && !telefone.isBlank() && !"Não informado".equalsIgnoreCase(telefone))) {
+                    precisaAtualizar = true;
+                }
+                if (("Não informado".equalsIgnoreCase(respAntiga.email()) || respAntiga.email() == null) &&
+                    (email != null && !email.isBlank() && !"Não informado".equalsIgnoreCase(email))) {
+                    precisaAtualizar = true;
+                }
+                if ((respAntiga.endereco() == null || respAntiga.endereco().isBlank()) && (endereco != null && !endereco.isBlank() && !endereco.equalsIgnoreCase("Centro"))) {
+                    precisaAtualizar = true;
+                }
+                if (precisaAtualizar) {
+                    existente.setRegiao(regiaoJson);
+                    pesquisaRepository.save(existente);
+                    log.info("Informações da busca enriquecidas e atualizadas no banco: {} ({})", nomeFinal, cidadeNormalizada);
+                }
+                return false;
+            }
+
+            Pesquisa nova = Pesquisa.builder()
+                    .idUsuario(idUsuario)
+                    .consulta(nomeFinal)
+                    .regiao(regiaoJson)
+                    .status("completed")
+                    .build();
+
+            pesquisaRepository.save(nova);
+            log.info("Nova busca salva com sucesso no banco: {} ({}) [Origem: {}]", nomeFinal, cidadeNormalizada, tipoOrigem);
+            return true;
+        } catch (Exception e) {
+            log.error("Erro ao salvar informações da busca para '{}': {}", nomeFinal, e.getMessage());
+            return false;
+        }
+    }
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -135,19 +338,27 @@ public class ProspeccaoService {
             }
 
             try {
-                int puxadasPortoBarreiro = prospectarCidadeEspecificaTavily(idUsuario, "Porto Barreiro", "PR");
-                log.info("Prospecção direcionada de Porto Barreiro concluída: {} novos estabelecimentos incorporados.", puxadasPortoBarreiro);
+                for (CidadeHelper.CidadeInfo cid : CidadeHelper.CIDADES_CITADAS) {
+                    try {
+                        int puxadas = prospectarCidadeEspecificaTavily(idUsuario, cid.nome(), "PR");
+                        if (puxadas > 0) {
+                            log.info("Prospecção direcionada Tavily de {} concluída: {} novos estabelecimentos incorporados.", cid.nome(), puxadas);
+                        }
+                    } catch (Exception e) {
+                        log.warn("Falha na prospecção complementar Tavily de {}: {}", cid.nome(), e.getMessage());
+                    }
+                }
             } catch (Exception e) {
-                log.warn("Falha na prospecção complementar de Porto Barreiro: {}", e.getMessage());
+                log.warn("Falha geral na prospecção complementar Tavily: {}", e.getMessage());
             }
 
             limparPesquisasInvalidas(idUsuario);
 
-            return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 100))
+            return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 500))
                     .getContent()
                     .stream()
                     .map(PesquisaResponse::from)
-                    .filter(r -> CidadeHelper.isCidadeCitada(r.cidade()))
+                    .filter(r -> CidadeHelper.isCidadeCitada(r.cidade()) && !isEstabelecimentoInvalido(r.consulta(), r.categoria()))
                     .toList();
         } finally {
             if (idUsuario != null) {
@@ -162,9 +373,25 @@ public class ProspeccaoService {
             List<Pesquisa> pesquisas = pesquisaRepository.findByIdUsuario(idUsuario, PageRequest.of(0, 500)).getContent();
             for (Pesquisa p : pesquisas) {
                 PesquisaResponse resp = PesquisaResponse.from(p);
+                boolean invalida = false;
+
+                // 1. Cidade não citada na comarca
                 if (!CidadeHelper.isCidadeCitada(resp.cidade())) {
+                    invalida = true;
+                }
+                // 2. Consulta vazia ou menor que 2 caracteres
+                if (p.getConsulta() == null || p.getConsulta().trim().length() < 2) {
+                    invalida = true;
+                }
+                // 3. Entidades públicas, cartórios, delegacias ou escolas públicas
+                if (isEstabelecimentoInvalido(p.getConsulta(), resp.categoria())) {
+                    invalida = true;
+                }
+
+                if (invalida) {
                     pesquisaRepository.delete(p);
-                    log.info("Pesquisa higienizada (cidade não citada '{}'): {}", resp.cidade(), p.getConsulta());
+                    log.info("Pesquisa higienizada e removida do banco (filtro universal): '{}' (Cidade: {})",
+                            p.getConsulta(), resp.cidade());
                 }
             }
         } catch (Exception e) {
@@ -180,16 +407,14 @@ public class ProspeccaoService {
             if (!tags.hasNonNull("name")) continue;
 
             String nome = tags.path("name").asText().trim();
-            if (nome.isEmpty() || nome.toLowerCase().startsWith("rua ") || nome.toLowerCase().startsWith("avenida ")) continue;
-
             String tipo = tags.path("shop").asText(tags.path("amenity").asText(tags.path("craft").asText("")));
-            if (TIPOS_IGNORADOS.contains(tipo)) continue;
 
-            if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nome)) {
+            // Aplica filtro universal de estabelecimentos comerciais
+            if (isEstabelecimentoInvalido(nome, tipo)) {
                 continue;
             }
 
-            if (pesquisaRepository.existsByIdUsuarioAndConsultaIgnoreCase(idUsuario, nome)) {
+            if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nome)) {
                 continue;
             }
 
@@ -297,45 +522,29 @@ public class ProspeccaoService {
             String emailFinal = resolverEmail(emailOficial, emailWikidata, emailOverpass);
             String siteFinal = resolverWebsite(siteWikidata, siteOverpass, telefoneFinal);
 
-            try {
-                Map<String, String> meta = new LinkedHashMap<>();
-                meta.put("endereco", enderecoLimpo);
-                meta.put("cidade", cidade);
-                meta.put("estado", estado);
-                meta.put("categoria", categoria);
-                meta.put("horario", horario);
-                meta.put("telefone", telefoneFinal);
-                meta.put("email", emailFinal);
-                meta.put("site", siteFinal);
-                if (cnpjFinal != null) {
-                    meta.put("cnpj", cnpjFinal);
-                }
-                if (razaoSocialOficial != null && !razaoSocialOficial.isBlank()) {
-                    meta.put("razaoSocial", razaoSocialOficial);
-                }
-                boolean temCoords = (!Double.isNaN(lat) && !Double.isNaN(lon) && (lat != 0.0 || lon != 0.0));
-                if (temCoords) {
-                    meta.put("latitude", String.valueOf(lat));
-                    meta.put("longitude", String.valueOf(lon));
-                }
-                boolean temEndereco = (enderecoLimpo != null && !enderecoLimpo.isBlank() && !enderecoLimpo.equalsIgnoreCase("Centro"));
-                meta.put("localizacaoConfirmada", String.valueOf(temCoords || temEndereco));
-                meta.put("tipoLocalizacao", (temCoords && temEndereco) ? "EXATA" : (temCoords ? "GPS" : (temEndereco ? "ENDERECO" : "APROXIMADA")));
+            Double latVal = (!Double.isNaN(lat) && lat != 0.0) ? lat : null;
+            Double lonVal = (!Double.isNaN(lon) && lon != 0.0) ? lon : null;
 
-                String regiaoJson = objectMapper.writeValueAsString(meta);
+            boolean salvou = salvarOuAtualizarPesquisa(
+                    idUsuario,
+                    nome,
+                    enderecoLimpo,
+                    cidade,
+                    estado,
+                    categoria,
+                    horario,
+                    telefoneFinal,
+                    emailFinal,
+                    siteFinal,
+                    cnpjFinal,
+                    razaoSocialOficial,
+                    latVal,
+                    lonVal,
+                    "OpenStreetMap/Overpass"
+            );
 
-                Pesquisa p = Pesquisa.builder()
-                        .idUsuario(idUsuario)
-                        .consulta(nome)
-                        .regiao(regiaoJson)
-                        .status("completed")
-                        .build();
-
-                pesquisaRepository.save(p);
+            if (salvou) {
                 processados++;
-
-            } catch (Exception e) {
-                log.error("Erro ao persistir pesquisa para '{}': {}", nome, e.getMessage());
             }
         }
 
@@ -707,15 +916,87 @@ public class ProspeccaoService {
         return map;
     }
 
-    // Busca de CNPJ via Tavily Search API
+    /**
+     * Executa chamada HTTP à Tavily Search API com rotação automática de chave.
+     * Se uma chave atingir limite de requisições ou cota (HTTP 429, 432, etc.),
+     * rotaciona imediatamente para a próxima chave e repete a busca de forma transparente.
+     */
+    public JsonNode executarChamadaTavilyComRotacao(Map<String, Object> payloadBase, Duration timeout) {
+        if (tavilyApiKeyRotator == null) {
+            log.warn("TavilyApiKeyRotator não configurado.");
+            return null;
+        }
+
+        int totalChaves = tavilyApiKeyRotator.getTotalChaves();
+        if (totalChaves == 0) {
+            log.warn("Nenhuma chave de API do Tavily disponível no pool.");
+            return null;
+        }
+
+        for (int tentativa = 1; tentativa <= totalChaves; tentativa++) {
+            String apiKey = tavilyApiKeyRotator.obterChaveAtual();
+            String chaveMascarada = TavilyApiKeyRotator.mascararChave(apiKey);
+
+            try {
+                Map<String, Object> payload = new LinkedHashMap<>(payloadBase);
+                payload.put("api_key", apiKey);
+
+                String jsonPayload = objectMapper.writeValueAsString(payload);
+
+                HttpRequest req = HttpRequest.newBuilder()
+                        .uri(URI.create(TAVILY_API_URL))
+                        .timeout(timeout != null ? timeout : Duration.ofSeconds(6))
+                        .header("Content-Type", "application/json")
+                        .header("Accept", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                        .build();
+
+                HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+                int status = resp.statusCode();
+                String body = resp.body();
+
+                if (status == 200 && body != null) {
+                    return objectMapper.readTree(body);
+                }
+
+                if (tavilyApiKeyRotator.isLimiteOuChaveInvalida(status, body)) {
+                    log.warn("[Tavily] Limite atingido ou chave recusada ({}) [HTTP {}]. Alternando automaticamente para a próxima chave...",
+                            chaveMascarada, status);
+                    tavilyApiKeyRotator.rotacionarParaProxima(apiKey, "HTTP " + status + " - Limite/Cota");
+                    continue; // Repete a busca com a próxima chave disponível
+                }
+
+                if (status >= 500) {
+                    log.warn("[Tavily] Servidor retornou HTTP {} para a chave {}. Tentando chave alternativa...",
+                            status, chaveMascarada);
+                    tavilyApiKeyRotator.rotacionarParaProxima(apiKey, "HTTP " + status + " - Erro servidor Tavily");
+                    continue;
+                }
+
+                log.warn("[Tavily] Retornou HTTP {} para a chave {}: {}", status, chaveMascarada, body);
+                return null;
+            } catch (Exception e) {
+                log.warn("[Tavily] Falha de comunicação com chave {}: {}. Alternando para a próxima chave...",
+                        chaveMascarada, e.getMessage());
+                tavilyApiKeyRotator.rotacionarParaProxima(apiKey, "Exceção: " + e.getMessage());
+            }
+        }
+
+        log.error("[Tavily] Todas as {} chaves configuradas falharam ou atingiram o limite de buscas.", totalChaves);
+        return null;
+    }
+
+    // Busca de CNPJ via Tavily Search API com rotação automática de chave
     public String buscarCnpjViaTavily(String nome, String cidade, String estado) {
-        if (tavilyApiKey == null || tavilyApiKey.isBlank()) return null;
+        if (tavilyApiKeyRotator == null || tavilyApiKeyRotator.getTotalChaves() == 0) return null;
+        if (isEstabelecimentoInvalido(nome, null)) return null;
+        if (cidade != null && !CidadeHelper.isCidadeCitada(cidade)) return null;
 
         try {
-            String query = String.format("%s %s %s CNPJ", nome, cidade, estado != null ? estado : "PR");
+            String cidadeNormalizada = CidadeHelper.normalizarCidade(cidade);
+            String query = String.format("%s %s %s CNPJ", nome, cidadeNormalizada != null ? cidadeNormalizada : cidade, estado != null ? estado : "PR");
 
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("api_key", tavilyApiKey);
             payload.put("query", query);
             payload.put("search_depth", "basic");
             payload.put("max_results", 4);
@@ -728,19 +1009,8 @@ public class ProspeccaoService {
                     "situacaocadastral.info"
             ));
 
-            String jsonPayload = objectMapper.writeValueAsString(payload);
-
-            HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(TAVILY_API_URL))
-                    .timeout(Duration.ofMillis(4500))
-                    .header("Content-Type", "application/json")
-                    .header("Accept", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                    .build();
-
-            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() == 200 && resp.body() != null) {
-                JsonNode root = objectMapper.readTree(resp.body());
+            JsonNode root = executarChamadaTavilyComRotacao(payload, Duration.ofMillis(4500));
+            if (root != null) {
                 JsonNode results = root.path("results");
                 if (results.isArray()) {
                     for (JsonNode res : results) {
@@ -758,8 +1028,6 @@ public class ProspeccaoService {
                         }
                     }
                 }
-            } else {
-                log.warn("Tavily Search API retornou HTTP {}", resp.statusCode());
             }
         } catch (Exception e) {
             log.debug("Tavily Search API: falha ao buscar CNPJ para '{}': {}", nome, e.getMessage());
@@ -1009,8 +1277,8 @@ public class ProspeccaoService {
             return 0;
         }
 
-        if (tavilyApiKey == null || tavilyApiKey.isBlank()) {
-            log.warn("Tavily API Key ausente; prospecção para {} não pôde ser executada.", cidadeCanonica);
+        if (tavilyApiKeyRotator == null || tavilyApiKeyRotator.getTotalChaves() == 0) {
+            log.warn("Tavily API Keys ausentes; prospecção para {} não pôde ser executada.", cidadeCanonica);
             return 0;
         }
 
@@ -1026,12 +1294,11 @@ public class ProspeccaoService {
 
             for (String q : queries) {
                 try {
-                    Map<String, Object> payload = new LinkedHashMap<>();
-                    payload.put("api_key", tavilyApiKey);
-                    payload.put("query", q);
-                    payload.put("search_depth", "basic");
-                    payload.put("max_results", 10);
-                    payload.put("include_domains", List.of(
+                    Map<String, Object> payloadBase = new LinkedHashMap<>();
+                    payloadBase.put("query", q);
+                    payloadBase.put("search_depth", "basic");
+                    payloadBase.put("max_results", 10);
+                    payloadBase.put("include_domains", List.of(
                             "casadosdados.com.br",
                             "cnpj.biz",
                             "econodata.com.br",
@@ -1040,18 +1307,8 @@ public class ProspeccaoService {
                             "situacaocadastral.info"
                     ));
 
-                    String jsonPayload = objectMapper.writeValueAsString(payload);
-                    HttpRequest req = HttpRequest.newBuilder()
-                            .uri(URI.create(TAVILY_API_URL))
-                            .timeout(Duration.ofSeconds(6))
-                            .header("Content-Type", "application/json")
-                            .header("Accept", "application/json")
-                            .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                            .build();
-
-                    HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-                    if (resp.statusCode() == 200 && resp.body() != null) {
-                        JsonNode root = objectMapper.readTree(resp.body());
+                    JsonNode root = executarChamadaTavilyComRotacao(payloadBase, Duration.ofSeconds(6));
+                    if (root != null) {
                         JsonNode results = root.path("results");
                         if (results.isArray()) {
                             for (JsonNode res : results) {
@@ -1113,8 +1370,14 @@ public class ProspeccaoService {
 
                     nome = limparNomePreliminar(nome, cnpj);
 
-                    if (empresaRepository.existsByIdUsuarioAndNomeIgnoreCase(idUsuario, nome) ||
-                        pesquisaRepository.existsByIdUsuarioAndConsultaIgnoreCase(idUsuario, nome)) {
+                    // Se após a limpeza o nome preliminar ficou vazio mas temos a razão social, usa a razão social sem prefixo de CNPJ
+                    if (nome.isBlank() && razaoSocial != null && !razaoSocial.isBlank()) {
+                        nome = limparNomePreliminar(razaoSocial, cnpj);
+                    }
+
+                    // APLICA O FILTRO UNIVERSAL DE ESTABELECIMENTOS PARA A API TAVILY
+                    if (isEstabelecimentoInvalido(nome, null)) {
+                        log.debug("Descartando estabelecimento inválido/órgão público via Tavily: '{}'", nome);
                         continue;
                     }
 
@@ -1139,35 +1402,27 @@ public class ProspeccaoService {
                     String site = resolverWebsite(null, null, telefone);
                     String cnpjFormatado = formatarCnpjMascara(cnpj);
 
-                    Map<String, String> meta = new LinkedHashMap<>();
-                    meta.put("endereco", endereco);
-                    meta.put("cidade", cidadeFinal);
-                    meta.put("estado", estadoFinal);
-                    meta.put("categoria", categoria);
-                    meta.put("horario", "Seg a Sex 08:00 - 18:00");
-                    meta.put("telefone", telefone);
-                    meta.put("email", email);
-                    meta.put("site", site);
-                    meta.put("cnpj", cnpjFormatado);
-                    if (razaoSocial != null && !razaoSocial.isBlank()) {
-                        meta.put("razaoSocial", razaoSocial);
+                    boolean salvou = salvarOuAtualizarPesquisa(
+                            idUsuario,
+                            nome,
+                            endereco,
+                            cidadeFinal,
+                            estadoFinal,
+                            categoria,
+                            "Seg a Sex 08:00 - 18:00",
+                            telefone,
+                            email,
+                            site,
+                            cnpjFormatado,
+                            razaoSocial,
+                            null,
+                            null,
+                            "Tavily Search"
+                    );
+
+                    if (salvou) {
+                        novasEmpresas++;
                     }
-                    boolean temEndereco = (endereco != null && !endereco.isBlank());
-                    meta.put("localizacaoConfirmada", String.valueOf(temEndereco));
-                    meta.put("tipoLocalizacao", temEndereco ? "ENDERECO" : "APROXIMADA");
-
-                    String regiaoJson = objectMapper.writeValueAsString(meta);
-
-                    Pesquisa p = Pesquisa.builder()
-                            .idUsuario(idUsuario)
-                            .consulta(nome)
-                            .regiao(regiaoJson)
-                            .status("completed")
-                            .build();
-
-                    pesquisaRepository.save(p);
-                    novasEmpresas++;
-                    log.info("Empresa de {} salva com sucesso: {} (CNPJ: {})", cidadeFinal, nome, cnpjFormatado);
 
                 } catch (Exception ex) {
                     log.error("Erro ao processar e salvar empresa CNPJ {} de {}: {}", cnpj, cidadeCanonica, ex.getMessage());
@@ -1181,16 +1436,29 @@ public class ProspeccaoService {
         return novasEmpresas;
     }
 
-    private String limparNomePreliminar(String raw, String cnpj) {
+    public static String limparNomePreliminar(String raw, String cnpj) {
         if (raw == null) return "";
         String nome = raw.trim();
-        nome = nome.replaceAll("(?i)\\s*-\\s*\\d{14}.*", "");
-        nome = nome.replaceAll("(?i)\\s*\\d{14}.*", "");
-        nome = nome.replaceAll("(?i)\\s*\\|.*", "");
-        nome = nome.replaceAll("(?i)\\s*-\\s*Porto Barreiro.*", "");
-        nome = nome.replaceAll("(?i)\\s*Porto Barreiro.*", "");
-        nome = nome.replaceAll("^\\d{2}\\.\\d{3}\\.\\d{3}\\s*", "");
-        nome = nome.replaceAll("^\\d{14}\\s*", "");
+
+        // 1. Remove prefixo numérico de CNPJ no início (ex: "05.059.448/0001-02 Empresa", "51.274.888 Empresa", "51274888000191 Empresa")
+        nome = nome.replaceAll("^\\d{2}\\.?\\d{3}\\.?\\d{3}(?:/?\\d{4}-?\\d{2})?\\s*[-–:]?\\s*", "");
+        nome = nome.replaceAll("^\\d{14}\\s*[-–:]?\\s*", "");
+        nome = nome.replaceAll("^\\d{8}\\s*[-–:]?\\s*", "");
+
+        // 2. Remove sufixo de CNPJ no final
+        nome = nome.replaceAll("(?i)\\s*[-–:]?\\s*\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}.*$", "");
+        nome = nome.replaceAll("(?i)\\s*[-–:]?\\s*\\d{14}.*$", "");
+
+        // 3. Remove sufixos de portais da web no final (Casa dos Dados, Econodata, CNPJ Biz, etc.)
+        nome = nome.replaceAll("(?i)\\s*\\|\\s*(Casa dos Dados|CNPJ Biz|Econodata|Consulta.*|Tavily.*)$", "");
+        nome = nome.replaceAll("(?i)\\s*[-–]\\s*(Casa dos Dados|CNPJ Biz|Econodata|Consulta.*|Tavily.*)$", "");
+        nome = nome.replaceAll("(?i)\\s*\\|.*$", "");
+
+        // 4. Remove sufixos de localização no FINAL (ex: " - Porto Barreiro, PR" ou " em Porto Barreiro - PR")
+        nome = nome.replaceAll("(?i)\\s+em\\s+(Laranjeiras do Sul|Rio Bonito do Iguaçu|Porto Barreiro|Virmond|Cantagalo|Nova Laranjeiras)\\s*[-–,]?\\s*(PR)?$", "");
+        nome = nome.replaceAll("(?i)\\s*[-–]\\s*(Laranjeiras do Sul|Rio Bonito do Iguaçu|Porto Barreiro|Virmond|Cantagalo|Nova Laranjeiras)\\s*[-–,]?\\s*(PR)?$", "");
+        nome = nome.replaceAll("(?i)\\s*[-–,]?\\s*PR$", "");
+
         return nome.trim();
     }
 }

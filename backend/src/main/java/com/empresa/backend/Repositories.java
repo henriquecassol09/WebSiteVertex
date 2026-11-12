@@ -59,10 +59,12 @@ interface PesquisaRepository extends JpaRepository<Pesquisa, String> {
     Page<Pesquisa> findByIdUsuario(String idUsuario, Pageable pageable);
     Optional<Pesquisa> findByIdPesquisaAndIdUsuario(String idPesquisa, String idUsuario);
     boolean existsByIdUsuarioAndConsultaIgnoreCase(String idUsuario, String consulta);
+    Optional<Pesquisa> findFirstByIdUsuarioAndConsultaIgnoreCase(String idUsuario, String consulta);
 
     @Query("SELECT p FROM Pesquisa p WHERE p.idUsuario = :idUsuario " +
-           "AND (p.idPesquisa NOT IN (SELECT COALESCE(e.idPesquisa, '') FROM Empresa e WHERE e.idUsuario = :idUsuario AND e.idPesquisa IS NOT NULL)) " +
-           "AND (LOWER(p.consulta) NOT IN (SELECT LOWER(e.nome) FROM Empresa e WHERE e.idUsuario = :idUsuario)) " +
+           "AND TRIM(COALESCE(p.consulta, '')) <> '' " +
+           "AND (p.idPesquisa NOT IN (SELECT e.idPesquisa FROM Empresa e WHERE e.idUsuario = :idUsuario AND e.idPesquisa IS NOT NULL)) " +
+           "AND (LOWER(p.consulta) NOT IN (SELECT LOWER(e.nome) FROM Empresa e WHERE e.idUsuario = :idUsuario AND e.nome IS NOT NULL)) " +
            "ORDER BY CASE WHEN LOWER(p.regiao) LIKE '%porto barreiro%' THEN 1 ELSE 0 END ASC, p.criadoEm DESC")
     Page<Pesquisa> findNaoSalvasByIdUsuario(@Param("idUsuario") String idUsuario, Pageable pageable);
 

@@ -86,7 +86,7 @@ export const PesquisasView = () => {
   const handleRealizarBusca = async () => {
     setSegundosDecorridos(0);
     setBuscandoOverpass(true);
-    toast.info('Busca iniciada. Estimativa de tempo: de 1 a 3 minutos.', 10000);
+    toast.info('Busca iniciada. Estimativa de tempo: entre 1 e 2 minutos.', 10000);
 
     try {
       await api.pesquisas.prospectarRegiao();

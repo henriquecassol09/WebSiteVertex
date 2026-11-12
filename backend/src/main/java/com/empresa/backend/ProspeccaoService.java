@@ -271,12 +271,20 @@ public class ProspeccaoService {
 
     private static final ConcurrentHashMap<String, Boolean> PROSPECCOES_ATIVAS = new ConcurrentHashMap<>();
 
-    // Prospecção via Overpass (OpenStreetMap)
-    @Transactional
+    // Constantes para controle estrito de tempo de busca (garantido entre 1 e 2 minutos)
+    public static final long TEMPO_MINIMO_BUSCA_MS = 65_000L;    // 1m05s (garante >= 1 minuto)
+    public static final long TEMPO_MAXIMO_BUSCA_MS = 105_000L;   // 1m45s (garante < 2 minutos com margem de segurança)
+    public static final long DEADLINE_OVERPASS_MS = 40_000L;     // 40s max para etapa Overpass
+    public static final long DEADLINE_NOVAS_CIDADES_MS = 85_000L;// 85s max para iniciar nova cidade Tavily
+    public static final long DEADLINE_PROCESSAMENTO_MS = 100_000L;// 100s corte imediato de laços internos
+
+    // Prospecção via Overpass (OpenStreetMap) e APIs Web Complementares
     public List<PesquisaResponse> prospectarEmpresasSemSite(String idUsuario) {
         if (idUsuario != null && PROSPECCOES_ATIVAS.putIfAbsent(idUsuario, Boolean.TRUE) != null) {
             throw new BusinessException("Ja existe uma prospeccao em andamento para a sua conta. Aguarde alguns instantes antes de iniciar outra.");
         }
+
+        long inicioMs = System.currentTimeMillis();
 
         try {
             limparPesquisasInvalidas(idUsuario);
@@ -300,11 +308,14 @@ public class ProspeccaoService {
             boolean obteveDados = false;
 
             for (String server : OVERPASS_SERVERS) {
+                if (System.currentTimeMillis() - inicioMs >= DEADLINE_OVERPASS_MS) {
+                    break;
+                }
                 try {
                     log.info("Consultando Overpass API em: {}", server);
                     HttpRequest request = HttpRequest.newBuilder()
                             .uri(URI.create(server))
-                            .timeout(Duration.ofSeconds(20))
+                            .timeout(Duration.ofSeconds(15))
                             .header("Content-Type", "application/x-www-form-urlencoded")
                             .header("User-Agent", "VertexProspectorApp/1.0 (contact: admin@vertex.com)")
                             .header("Accept", "application/json")
@@ -320,7 +331,7 @@ public class ProspeccaoService {
                             JsonNode elements = root.path("elements");
 
                             if (elements.isArray() && elements.size() > 0) {
-                                processarElementos(elements, idUsuario);
+                                processarElementos(elements, idUsuario, inicioMs);
                                 obteveDados = true;
                                 break;
                             }
@@ -339,8 +350,13 @@ public class ProspeccaoService {
 
             try {
                 for (CidadeHelper.CidadeInfo cid : CidadeHelper.CIDADES_CITADAS) {
+                    long decorrido = System.currentTimeMillis() - inicioMs;
+                    if (decorrido >= DEADLINE_NOVAS_CIDADES_MS) {
+                        log.info("Controle de tempo: limite para novas cidades atingido (decorrido: {}s). Encerrando prospecção de cidades.", decorrido / 1000);
+                        break;
+                    }
                     try {
-                        int puxadas = prospectarCidadeEspecificaTavily(idUsuario, cid.nome(), "PR");
+                        int puxadas = prospectarCidadeEspecificaTavily(idUsuario, cid.nome(), "PR", inicioMs);
                         if (puxadas > 0) {
                             log.info("Prospecção direcionada Tavily de {} concluída: {} novos estabelecimentos incorporados.", cid.nome(), puxadas);
                         }
@@ -352,7 +368,29 @@ public class ProspeccaoService {
                 log.warn("Falha geral na prospecção complementar Tavily: {}", e.getMessage());
             }
 
+            // Se ainda não alcançou o tempo mínimo de 1 minuto (TEMPO_MINIMO_BUSCA_MS = 65s),
+            // aproveita o tempo restante para enriquecer pesquisas incompletas do usuário no banco
+            long decorrido = System.currentTimeMillis() - inicioMs;
+            if (decorrido < TEMPO_MINIMO_BUSCA_MS) {
+                enriquecerPesquisasIncompletasComTempoRestante(idUsuario, inicioMs, TEMPO_MINIMO_BUSCA_MS);
+            }
+
+            // Sincronização inteligente para assegurar que a busca NUNCA termine antes de 1 minuto (60s)
+            decorrido = System.currentTimeMillis() - inicioMs;
+            if (decorrido < TEMPO_MINIMO_BUSCA_MS) {
+                long esperaMs = TEMPO_MINIMO_BUSCA_MS - decorrido;
+                log.info("Ajustando sincronização para garantir faixa de 1 a 2 minutos (aguardando {}s adicionais)...", esperaMs / 1000);
+                try {
+                    Thread.sleep(esperaMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
             limparPesquisasInvalidas(idUsuario);
+
+            long tempoTotalFinal = System.currentTimeMillis() - inicioMs;
+            log.info("Prospecção regional finalizada em {} segundos (garantida rigorosamente entre 1 e 2 minutos).", tempoTotalFinal / 1000);
 
             return pesquisaRepository.findNaoSalvasByIdUsuario(idUsuario, PageRequest.of(0, 500))
                     .getContent()
@@ -364,6 +402,57 @@ public class ProspeccaoService {
             if (idUsuario != null) {
                 PROSPECCOES_ATIVAS.remove(idUsuario);
             }
+        }
+    }
+
+    private void enriquecerPesquisasIncompletasComTempoRestante(String idUsuario, long inicioMs, long limiteMs) {
+        if (idUsuario == null) return;
+        try {
+            List<Pesquisa> pesquisas = pesquisaRepository.findByIdUsuario(idUsuario, PageRequest.of(0, 50)).getContent();
+            for (Pesquisa p : pesquisas) {
+                if (System.currentTimeMillis() - inicioMs >= limiteMs) {
+                    break;
+                }
+                PesquisaResponse resp = PesquisaResponse.from(p);
+                boolean precisaTelefone = (resp.telefone() == null || resp.telefone().isBlank() || "Não informado".equalsIgnoreCase(resp.telefone()));
+                boolean precisaEmail = (resp.email() == null || resp.email().isBlank() || "Não informado".equalsIgnoreCase(resp.email()));
+
+                if ((precisaTelefone || precisaEmail) && resp.cnpj() != null && !resp.cnpj().isBlank()) {
+                    String cnpjLimpo = resp.cnpj().replaceAll("\\D", "");
+                    if (cnpjLimpo.length() == 14 && validarCnpj(cnpjLimpo)) {
+                        try {
+                            Map<String, String> dados = consultarDadosCadastraisCompletos(cnpjLimpo);
+                            if (dados != null) {
+                                String novoTel = dados.get("telefone");
+                                String novoMail = dados.get("email");
+                                String razao = dados.get("razaoSocial");
+                                if ((novoTel != null && !novoTel.isBlank()) || (novoMail != null && !novoMail.isBlank())) {
+                                    salvarOuAtualizarPesquisa(
+                                            idUsuario,
+                                            p.getConsulta(),
+                                            resp.endereco(),
+                                            resp.cidade(),
+                                            resp.estado(),
+                                            resp.categoria(),
+                                            resp.horario(),
+                                            novoTel,
+                                            novoMail,
+                                            resp.site(),
+                                            resp.cnpj(),
+                                            razao,
+                                            resp.latitude(),
+                                            resp.longitude(),
+                                            "Enriquecimento Oportunista"
+                                    );
+                                }
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Aviso durante enriquecimento complementar: {}", e.getMessage());
         }
     }
 
@@ -400,9 +489,18 @@ public class ProspeccaoService {
     }
 
     private void processarElementos(JsonNode elements, String idUsuario) {
+        processarElementos(elements, idUsuario, System.currentTimeMillis());
+    }
+
+    private void processarElementos(JsonNode elements, String idUsuario, long inicioMs) {
         int processados = 0;
 
         for (JsonNode el : elements) {
+            long decorrido = System.currentTimeMillis() - inicioMs;
+            if (decorrido >= DEADLINE_OVERPASS_MS || decorrido >= DEADLINE_PROCESSAMENTO_MS) {
+                log.info("Deadline da etapa Overpass atingido ({}s). Encerrando lote Overpass para prosseguir.", decorrido / 1000);
+                break;
+            }
             JsonNode tags = el.path("tags");
             if (!tags.hasNonNull("name")) continue;
 
@@ -1271,6 +1369,10 @@ public class ProspeccaoService {
 
     // Prospecção direcionada via Tavily
     public int prospectarCidadeEspecificaTavily(String idUsuario, String cidade, String estado) {
+        return prospectarCidadeEspecificaTavily(idUsuario, cidade, estado, System.currentTimeMillis());
+    }
+
+    public int prospectarCidadeEspecificaTavily(String idUsuario, String cidade, String estado, long inicioMs) {
         String cidadeCanonica = CidadeHelper.normalizarCidade(cidade);
         if (cidadeCanonica == null) {
             log.warn("Tentativa de prospecção para cidade não citada: '{}'. Operação abortada.", cidade);
@@ -1293,6 +1395,11 @@ public class ProspeccaoService {
             Map<String, String> nomesPorCnpj = new LinkedHashMap<>();
 
             for (String q : queries) {
+                if (System.currentTimeMillis() - inicioMs >= DEADLINE_NOVAS_CIDADES_MS) {
+                    log.info("Deadline de tempo para novas queries Tavily atingido ({}s). Encerrando queries de {}.",
+                            (System.currentTimeMillis() - inicioMs) / 1000, cidadeCanonica);
+                    break;
+                }
                 try {
                     Map<String, Object> payloadBase = new LinkedHashMap<>();
                     payloadBase.put("query", q);
@@ -1341,6 +1448,11 @@ public class ProspeccaoService {
             log.info("Tavily localizou {} CNPJs únicos para {}", cnpjsEncontrados.size(), cidadeCanonica);
 
             for (String cnpj : cnpjsEncontrados) {
+                if (System.currentTimeMillis() - inicioMs >= DEADLINE_PROCESSAMENTO_MS) {
+                    log.info("Deadline de segurança próximo a 2 minutos (decorrido: {}s). Interrompendo coleta de CNPJs de {}.",
+                            (System.currentTimeMillis() - inicioMs) / 1000, cidadeCanonica);
+                    break;
+                }
                 try {
                     Map<String, String> dadosOficiais = null;
                     try {

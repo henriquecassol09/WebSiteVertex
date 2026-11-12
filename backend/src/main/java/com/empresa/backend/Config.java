@@ -111,13 +111,21 @@ public class Config {
         if (!origins.contains("https://websitevertex.duckdns.org")) {
             origins.add("https://websitevertex.duckdns.org");
         }
+        if (!origins.contains("http://136.248.112.28")) {
+            origins.add("http://136.248.112.28");
+        }
+        if (!origins.contains("https://136.248.112.28")) {
+            origins.add("https://136.248.112.28");
+        }
 
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost*",
                 "http://127.0.0.1*",
                 "http://websitevertex.duckdns.org*",
-                "https://websitevertex.duckdns.org*"
+                "https://websitevertex.duckdns.org*",
+                "http://136.248.112.28*",
+                "https://136.248.112.28*"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin", "X-CSRF-Token", "X-CSRF-Protection"));

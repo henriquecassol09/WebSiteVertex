@@ -22,7 +22,7 @@ public class CsrfDefenseFilter extends OncePerRequestFilter {
 
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");
 
-    @Value("${app.security.cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://websitevertex.duckdns.org,https://websitevertex.duckdns.org}")
+    @Value("${app.security.cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://websitevertex.duckdns.org,https://websitevertex.duckdns.org,https://136.248.112.28,http://136.248.112.28}")
     private String allowedOrigins;
 
     @Override
@@ -104,6 +104,7 @@ public class CsrfDefenseFilter extends OncePerRequestFilter {
             String host = uri.getHost();
             if (host != null && (host.equalsIgnoreCase("websitevertex.duckdns.org")
                     || host.endsWith(".duckdns.org")
+                    || host.equalsIgnoreCase("136.248.112.28")
                     || host.equalsIgnoreCase("localhost")
                     || host.equalsIgnoreCase("127.0.0.1"))) {
                 return true;
@@ -123,7 +124,8 @@ public class CsrfDefenseFilter extends OncePerRequestFilter {
 
             if (host.equalsIgnoreCase(hostServidor)
                     || host.equalsIgnoreCase("websitevertex.duckdns.org")
-                    || host.endsWith(".duckdns.org")) {
+                    || host.endsWith(".duckdns.org")
+                    || host.equalsIgnoreCase("136.248.112.28")) {
                 return true;
             }
 

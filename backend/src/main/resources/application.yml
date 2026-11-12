@@ -99,7 +99,7 @@ app:
       refresh-token-days: ${JWT_REFRESH_DAYS:7}
       issuer: backend-api
     cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://websitevertex.duckdns.org,https://websitevertex.duckdns.org}
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,http://websitevertex.duckdns.org,https://websitevertex.duckdns.org,https://136.248.112.28,http://136.248.112.28}
     rate-limit:
       auth-capacity: ${RATE_LIMIT_AUTH_CAPACITY:50}              # tentativas max por janela
       auth-refill-minutes: 1

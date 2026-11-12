@@ -155,4 +155,30 @@ class CsrfDefenseTest {
 
         assertEquals(200, response.getStatus());
     }
+
+    @Test
+    @DisplayName("POST com Origin do IP da VM https://136.248.112.28/ deve ser permitido")
+    void postComOriginIpVmDeveSerPermitido() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/empresas");
+        request.addHeader("Origin", "https://136.248.112.28/");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain filterChain = new MockFilterChain();
+
+        csrfDefenseFilter.doFilterInternal(request, response, filterChain);
+
+        assertEquals(200, response.getStatus());
+    }
+
+    @Test
+    @DisplayName("POST com Referer do IP da VM https://136.248.112.28/ deve ser permitido")
+    void postComRefererIpVmDeveSerPermitido() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/empresas");
+        request.addHeader("Referer", "https://136.248.112.28/login");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain filterChain = new MockFilterChain();
+
+        csrfDefenseFilter.doFilterInternal(request, response, filterChain);
+
+        assertEquals(200, response.getStatus());
+    }
 }

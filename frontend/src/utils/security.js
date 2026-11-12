@@ -43,10 +43,13 @@ export const sanitizarUrlFoto = (url) => {
     return limpa;
   }
 
-  // 2. URLs externas: Apenas HTTPS é permitido
+  // 2. URLs externas: Apenas HTTPS ou domínios/IPs autorizados
   const isHttps = limpa.toLowerCase().startsWith('https://');
-  const isDuckDns = limpa.toLowerCase().startsWith('http://websitevertex.duckdns.org') || limpa.toLowerCase().startsWith('https://websitevertex.duckdns.org');
-  if (!isHttps && !isDuckDns) {
+  const isDuckDnsOuIp = limpa.toLowerCase().startsWith('http://websitevertex.duckdns.org') || 
+                        limpa.toLowerCase().startsWith('https://websitevertex.duckdns.org') ||
+                        limpa.toLowerCase().startsWith('http://136.248.112.28') ||
+                        limpa.toLowerCase().startsWith('https://136.248.112.28');
+  if (!isHttps && !isDuckDnsOuIp) {
     return null;
   }
 

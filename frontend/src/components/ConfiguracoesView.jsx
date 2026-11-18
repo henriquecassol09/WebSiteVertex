@@ -845,6 +845,7 @@ export const ConfiguracoesView = ({ onVoltar, onAccountDeleted }) => {
         emailInicial={user?.email || ''}
         nomeInicial={user?.nome || ''}
         erroInicial={senhaErrors.general || ''}
+        posLogin={true}
       />
     </div>
   );

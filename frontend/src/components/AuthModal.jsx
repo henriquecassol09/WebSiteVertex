@@ -7,7 +7,7 @@ import { TermosUsoModal } from './TermosUsoModal';
 import { SuporteModal } from './SuporteModal';
 import { X, Lock, Mail, User, Check, AlertCircle, KeyRound, ArrowLeft, RefreshCw, Loader2, LifeBuoy, Eye, EyeOff } from 'lucide-react';
 
-export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail = '' }) => {
+export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail = '', posLogin = false }) => {
   const [mode, setMode] = useState(initialMode); // 'login' | 'register' | 'verify'
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState(initialEmail);
@@ -23,7 +23,7 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
-  const { login, register, confirmRegister } = useAuth();
+  const { user, login, register, confirmRegister } = useAuth();
   const toast = useToast();
 
   useEffect(() => {
@@ -498,7 +498,9 @@ export const AuthModal = ({ isOpen, onClose, initialMode = 'login', initialEmail
           isOpen={suporteModalOpen}
           onClose={() => setSuporteModalOpen(false)}
           origem="Trocar de Conta"
-          emailInicial={email || ''}
+          emailInicial={email || (posLogin ? user?.email : '') || ''}
+          nomeInicial={posLogin ? (user?.nome || '') : ''}
+          posLogin={posLogin}
         />
       </div>
     </div>

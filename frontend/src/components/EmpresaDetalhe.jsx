@@ -188,7 +188,10 @@ export const EmpresaDetalhe = ({ empresa, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card shrink-0">
+        <div
+          className="flex items-center justify-between px-6 border-b border-vertex-border dark:border-vertex-dark-border bg-white dark:bg-vertex-dark-card shrink-0"
+          style={{ paddingTop: '8px', paddingBottom: '12px' }}
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-vertex-charcoal text-white flex items-center justify-center font-bold text-sm shadow-subtle">
               {empresa.nome.charAt(0).toUpperCase()}

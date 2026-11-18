@@ -208,6 +208,7 @@ export const Header = ({ currentView, onViewChange, onOpenAuth, onOpenLoginScree
         origem="Menu do Usuário"
         emailInicial={user?.email || ''}
         nomeInicial={user?.nome || ''}
+        posLogin={true}
       />
     </header>
   );

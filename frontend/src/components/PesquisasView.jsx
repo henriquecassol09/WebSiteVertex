@@ -27,13 +27,28 @@ import {
 import { detectarCategoria } from '../utils/categoriaHelper';
 import { sanitizarUrl } from '../utils/security';
 
+const buscaAtivaState = {
+  emAndamento: false,
+  inicioTimestamp: null,
+  listeners: new Set(),
+};
+
+const calcularSegundosDecorridos = () => {
+  if (!buscaAtivaState.emAndamento || !buscaAtivaState.inicioTimestamp) return 0;
+  return Math.max(0, Math.floor((Date.now() - buscaAtivaState.inicioTimestamp) / 1000));
+};
+
+const notificarBuscaListeners = (evento) => {
+  buscaAtivaState.listeners.forEach((listener) => listener(evento));
+};
+
 export const PesquisasView = () => {
   const [pesquisas, setPesquisas] = useState([]);
   const [empresasSalvasIds, setEmpresasSalvasIds] = useState(new Set());
   const [salvandoId, setSalvandoId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [buscandoOverpass, setBuscandoOverpass] = useState(false);
-  const [segundosDecorridos, setSegundosDecorridos] = useState(0);
+  const [buscandoOverpass, setBuscandoOverpass] = useState(() => buscaAtivaState.emAndamento);
+  const [segundosDecorridos, setSegundosDecorridos] = useState(() => calcularSegundosDecorridos());
   const [page, setPage] = useState(0);
   const pageSize = 50;
 
@@ -47,9 +62,30 @@ export const PesquisasView = () => {
   const toast = useToast();
 
   useEffect(() => {
+    const syncState = (evento) => {
+      setBuscandoOverpass(buscaAtivaState.emAndamento);
+      setSegundosDecorridos(calcularSegundosDecorridos());
+      if (evento?.concluidaComSucesso) {
+        carregarPesquisas();
+        carregarEmpresasSalvas();
+        setPage(0);
+      }
+    };
+
+    buscaAtivaState.listeners.add(syncState);
+    setBuscandoOverpass(buscaAtivaState.emAndamento);
+    setSegundosDecorridos(calcularSegundosDecorridos());
+
+    return () => {
+      buscaAtivaState.listeners.delete(syncState);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!buscandoOverpass) return;
+    setSegundosDecorridos(calcularSegundosDecorridos());
     const interval = setInterval(() => {
-      setSegundosDecorridos((s) => s + 1);
+      setSegundosDecorridos(calcularSegundosDecorridos());
     }, 1000);
     return () => clearInterval(interval);
   }, [buscandoOverpass]);
@@ -84,20 +120,24 @@ export const PesquisasView = () => {
   };
 
   const handleRealizarBusca = async () => {
-    setSegundosDecorridos(0);
-    setBuscandoOverpass(true);
+    if (buscaAtivaState.emAndamento) return;
+
+    buscaAtivaState.emAndamento = true;
+    buscaAtivaState.inicioTimestamp = Date.now();
+    notificarBuscaListeners({ iniciada: true });
     toast.info('Busca iniciada. Estimativa de tempo: entre 1 e 2 minutos.', 10000);
 
     try {
       await api.pesquisas.prospectarRegiao();
       toast.success('Busca concluída com sucesso!');
-      await carregarPesquisas();
-      await carregarEmpresasSalvas();
-      setPage(0);
+      buscaAtivaState.emAndamento = false;
+      buscaAtivaState.inicioTimestamp = null;
+      notificarBuscaListeners({ concluidaComSucesso: true });
     } catch (err) {
       toast.error(err.message || 'Erro ao realizar busca');
-    } finally {
-      setBuscandoOverpass(false);
+      buscaAtivaState.emAndamento = false;
+      buscaAtivaState.inicioTimestamp = null;
+      notificarBuscaListeners({ erro: true });
     }
   };
 

@@ -42,6 +42,7 @@ function AppContent() {
           onClose={() => setAuthModalOpen(false)}
           initialMode={authMode}
           initialEmail={authEmail}
+          posLogin={false}
         />
       </>
     );
@@ -76,6 +77,7 @@ function AppContent() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         initialMode={authMode}
+        posLogin={true}
       />
     </div>
   );

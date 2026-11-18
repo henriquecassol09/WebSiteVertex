@@ -375,7 +375,7 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
               <button
                 type="button"
                 onClick={() => {
-                  setForgotEmail(email);
+                  setForgotEmail('');
                   setErrors({});
                   setErrorMessage('');
                   setViewMode('forgot_request');
@@ -706,8 +706,9 @@ export const LoginScreen = ({ onLoginSuccess, onSwitchToRegister, onSwitchToVeri
           isOpen={suporteModalOpen}
           onClose={() => setSuporteModalOpen(false)}
           origem={suporteOrigem}
-          emailInicial={forgotEmail || email}
+          emailInicial={forgotEmail || ''}
           erroInicial={errorMessage}
+          posLogin={false}
         />
       </div>
     </div>

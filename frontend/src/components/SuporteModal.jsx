@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 export const SuporteModal = ({ 
   isOpen, 
@@ -19,9 +20,11 @@ export const SuporteModal = ({
   origem = 'Suporte Geral', 
   emailInicial = '', 
   nomeInicial = '',
-  erroInicial = ''
+  erroInicial = '',
+  posLogin = false
 }) => {
   const toast = useToast();
+  const { user } = useAuth();
 
   const [email, setEmail] = useState('');
   const [nome, setNome] = useState('');
@@ -33,14 +36,34 @@ export const SuporteModal = ({
 
   useEffect(() => {
     if (isOpen) {
-      setEmail(emailInicial || '');
-      setNome(nomeInicial || '');
+      const emailAutomatico = posLogin
+        ? (emailInicial || user?.email || localStorage.getItem('vertex_remembered_email') || '')
+        : (emailInicial || '');
+      const nomeAutomatico = posLogin
+        ? (nomeInicial || user?.nome || '')
+        : (nomeInicial || '');
+
+      setEmail(emailAutomatico);
+      setNome(nomeAutomatico);
       setMensagemErroSistema(erroInicial || '');
       setDescricaoErro('');
       setEnviadoSucesso(false);
       setErrors({});
     }
-  }, [isOpen, emailInicial, nomeInicial, erroInicial]);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && posLogin) {
+      const emailLogado = emailInicial || user?.email || localStorage.getItem('vertex_remembered_email') || '';
+      if (emailLogado && !email) {
+        setEmail(emailLogado);
+      }
+      const nomeLogado = nomeInicial || user?.nome || '';
+      if (nomeLogado && !nome) {
+        setNome(nomeLogado);
+      }
+    }
+  }, [isOpen, posLogin, emailInicial, nomeInicial, user?.email, user?.nome]);
 
   // Trava o scroll da página enquanto o modal estiver aberto (especialmente em mobile)
   useEffect(() => {

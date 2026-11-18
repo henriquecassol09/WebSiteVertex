@@ -61,20 +61,25 @@ export const AuthProvider = ({ children }) => {
   }, [checkConnection, carregarUsuario]);
 
   const login = async (email, senha) => {
-    const res = await api.auth.login({ email, senha });
+    const emailLimpo = (email || '').trim().toLowerCase();
+    const res = await api.auth.login({ email: emailLimpo, senha });
     try {
       const dadosUsuario = await api.auth.me();
       if (dadosUsuario) {
-        setUser(dadosUsuario);
-        localStorage.setItem('vertex_usuario', JSON.stringify(dadosUsuario));
+        const userCompleto = {
+          ...dadosUsuario,
+          email: dadosUsuario.email || emailLimpo,
+        };
+        setUser(userCompleto);
+        localStorage.setItem('vertex_usuario', JSON.stringify(userCompleto));
         return res;
       }
     } catch {
       // Continua com fallback
     }
     const userData = {
-      email,
-      nome: email.split('@')[0],
+      email: emailLimpo,
+      nome: emailLimpo.split('@')[0],
     };
     setUser(userData);
     localStorage.setItem('vertex_usuario', JSON.stringify(userData));
